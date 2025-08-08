@@ -4,9 +4,9 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.yourapp</groupId>
+    <groupId>org.dirchat</groupId>
     <artifactId>dirchat</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.1.0-alpha</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

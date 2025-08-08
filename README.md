@@ -2,7 +2,7 @@
 
 A desktop application using JavaFX for question answering over local documents using Apache Tika, LangChain4j, and Ollama.
 
-## What it does
+## Features - What it does
 - Select a folder with documents (`.pdf`, `.docx`, `.txt`)
 - Extracts text from documents using Apache Tika
 - Generates embeddings from the documents, which are stored as index files per document
@@ -26,23 +26,27 @@ A desktop application using JavaFX for question answering over local documents u
 ## Getting Started
 1. **Clone the repository**
 2. **Start Ollama locally or on your server** (see [Ollama docs](https://ollama.com/))
-3. **Build the project**
+4. **Build the project**
    ```sh
-   mvn clean install
+   mvn clean install 
+5. **Run the application**
+   ```sh
+   mvn javafx:run
+   ```
+
 
 ## Notes
 The generated index files are stored as JSON files in a subdirectory. These embeddings are loaded in the next session if needed. I am currently using _tinyllama_ as the embedding model. Be warned, it may take some time to index all your files.
 
 ## To-Dos
 - Improve UI/UX
-- Integrate ChromaDB for persistent storage. Add the moment the index is saved locally in a JSON file. Emebbings are saved on overlapping chucks of text which point to a cursor position in the document.
+- Use ServiceExecutor for calls to embedding services
+- Integrate ChromaDB for persistent storage. At the moment the index is saved locally in a JSON file. Emebbings are saved on overlapping chunks of text which point to a cursor position in the document.
 - Add a settings page to change the model and other parameters
 - Improve contextuality
 - Try other models, explore other API providers, use a task-specific model (**!**)
 - Develop towards a distributable
 - Linux support
-
-
 
 (c) [caoba1](https://github.com/caoba1)  
 Licensed under the [MIT License](LICENSE)

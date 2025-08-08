@@ -1,39 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
 <!-- JavaFX layout file -->
 
-<?import javafx.scene.layout.BorderPane?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.ProgressBar?>
-<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
 
-<BorderPane xmlns="http://javafx.com/javafx/20"
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.juiAsk.controller.UIController">
+<BorderPane xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.dirchat.controller.UIController">
     <top>
         <VBox spacing="5">
-            <HBox spacing="10">
+            <HBox prefHeight="6.0" prefWidth="501.0" spacing="10">
                 <padding>
-                    <Insets top="10" right="10" bottom="10" left="10"/>
+                    <Insets bottom="10" left="10" right="10" top="10" />
                 </padding>
-                <Button fx:id="loadFolderButton" text="📁 Load Folder"/>
-                <TextField fx:id="questionField" promptText="Type your question here..." HBox.hgrow="ALWAYS"/>
-                <Button fx:id="askButton" text="💬 Ask"/>
+                <Button fx:id="loadFolderButton" text="📁 Load Folder" />
+               <Label fx:id="folderLabel" style="-fx-font-size: 11; -fx-text-fill: #555;" text="No folder selected" />
             </HBox>
-            <Label fx:id="folderLabel" text="No folder selected" style="-fx-font-size: 11; -fx-text-fill: #555;"/>
-            <ProgressBar fx:id="progressBar" prefWidth="400" progress="0.0" />
         </VBox>
     </top>
     <center>
         <VBox spacing="5">
+            <ProgressBar fx:id="progressBar" prefHeight="11.0" prefWidth="498.0" progress="0.0" />
+             <TextField fx:id="questionField" prefHeight="25.0" prefWidth="459.0" promptText="Type your question here..." />
+             <Button fx:id="askButton" text="💬 Ask" />
             <TextArea fx:id="chatArea" editable="false" wrapText="true">
                 <VBox.margin>
-                    <Insets top="10" right="10" bottom="10" left="10"/>
+                    <Insets bottom="10" left="10" right="10" top="10" />
                 </VBox.margin>
             </TextArea>
             <ListView fx:id="indexStatusList" prefHeight="100" />

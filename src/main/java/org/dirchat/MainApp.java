@@ -18,7 +18,7 @@ public class MainApp extends Application {
     public void start(@NotNull Stage primaryStage) throws Exception {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/MainView.fxml"));
         Scene scene = new Scene(loader.load());
-        primaryStage.setTitle("LangChain4j Document Chat");
+        primaryStage.setTitle("dirchat - Directory Chat");
         primaryStage.setScene(scene);
         primaryStage.show();
     }

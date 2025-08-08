@@ -1,6 +1,4 @@
-# Maven target directory
 target/
-
 .idea/
 *.iml
 *.log
@@ -15,4 +13,3 @@ desktop.ini
 *.swo
 *~
 out/
-target/
