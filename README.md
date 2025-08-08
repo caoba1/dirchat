@@ -48,5 +48,5 @@ The generated index files are stored as JSON files in a subdirectory. These embe
 - Develop towards a distributable
 - Linux support
 
-(c) [caoba1](https://github.com/caoba1)  
 Licensed under the [MIT License](LICENSE)
+(c) [caoba1](https://github.com/caoba1)  
