@@ -1,0 +1,18 @@
+# Maven target directory
+target/
+
+.idea/
+*.iml
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+*.class
+*.jar
+*.war
+*.ear
+*.swp
+*.swo
+*~
+out/
+target/
