@@ -39,7 +39,7 @@ The generated index files are stored as JSON files in a subdirectory. These embe
 
 ## To-Dos
 - Improve UI/UX
-- Improve contextuality
+- Improve contextuality. Implement [this](https://www.youtube.com/watch?v=6efwN_US-zk).
 - Use ServiceExecutor for calls to embedding services
 - Integrate ChromaDB for persistent storage. At the moment the index is saved locally in a JSON file. Emebbings are saved on overlapping chunks of text which point to a cursor position in the document.
 - Add a settings page to change the model and other parameters
