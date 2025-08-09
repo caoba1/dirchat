@@ -34,19 +34,19 @@ A desktop application using JavaFX for question answering over local documents u
    mvn javafx:run
    ```
 
-
 ## Notes
 The generated index files are stored as JSON files in a subdirectory. These embeddings are loaded in the next session if needed. I am currently using _tinyllama_ as the embedding model. Be warned, it may take some time to index all your files.
 
 ## To-Dos
 - Improve UI/UX
+- Improve contextuality
 - Use ServiceExecutor for calls to embedding services
 - Integrate ChromaDB for persistent storage. At the moment the index is saved locally in a JSON file. Emebbings are saved on overlapping chunks of text which point to a cursor position in the document.
 - Add a settings page to change the model and other parameters
-- Improve contextuality
 - Try other models, explore other API providers, use a task-specific model (**!**)
 - Develop towards a distributable
 - Linux support
 
-Licensed under the [MIT License](LICENSE)
+
 (c) [caoba1](https://github.com/caoba1)  
+Licensed under the [MIT License](LICENSE)
