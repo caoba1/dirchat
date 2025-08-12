@@ -10,12 +10,12 @@ A desktop application using JavaFX for question answering over local documents u
 - Displays answers with references to the original document
 
 ## Architecture
-- **DocumentLoader**: Loads and parses documents via Apache Tika
-- **TextChunker**: Splits extracted text into chunks
-- **EmbeddingService**: Embeds text chunks using LangChain4j and the model of your choice
-- **VectorStore**: Stores and retrieves relevant chunks
+- **UIController**: Handles threading and UI updates.
 - **ChatService**: Handles user queries and LLM responses
-- **UIController**: Manages JavaFX UI and user interactions
+- **DocumentLoader**: Loads and parses documents via Apache Tika
+- **TextChunker**: Splits extracted text into _bitesize_ chunks
+- **EmbeddingService**: Embeds text using LangChain4j and the model of your choice
+- **VectorStore**: Stores and retrieves relevant document vectors
 
 ## Requirements
 - Java 17+
