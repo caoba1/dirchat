@@ -1,6 +1,6 @@
 # A Java Directory Chat Application
 
-A desktop application using JavaFX for question answering over local documents using Apache Tika, LangChain4j, and Ollama.
+A desktop application using JavaFX for question answering over local documents using Apache Tika, LangChain4j, and JavaFX. 
 
 ## Features - What it does
 - Select a folder with documents (`.pdf`, `.docx`, `.txt`)
@@ -21,7 +21,12 @@ A desktop application using JavaFX for question answering over local documents u
 - Java 17+
 - JavaFX SDK
 - Maven
+  -- LangChain4j
+  -- Apache Tika
+  -- Jackson Databind
 - Ollama running locally or on your server, usually at port 11434.
+   -- tinyllama
+
 
 ## Getting Started
 1. **Clone the repository**
@@ -40,6 +45,7 @@ The generated index files are stored as JSON files in a subdirectory. These embe
 ## To-Dos
 - Improve UI/UX
 - Improve contextuality. Implement [this](https://www.youtube.com/watch?v=6efwN_US-zk).
+- Explore using SBERT for document and context retrieval.
 - Use ServiceExecutor for calls to embedding services
 - Integrate ChromaDB for persistent storage. At the moment the index is saved locally in a JSON file. Emebbings are saved on overlapping chunks of text which point to a cursor position in the document.
 - Add a settings page to change the model and other parameters
