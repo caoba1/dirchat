@@ -44,6 +44,7 @@ The generated index files are stored as JSON files in a subdirectory. These embe
 
 ## To-Dos
 - Improve UI/UX
+- Run background tasks for the UI
 - Improve contextuality. Implement [this](https://www.youtube.com/watch?v=6efwN_US-zk).
 - Explore using SBERT for document and context retrieval.
 - Use ServiceExecutor for calls to embedding services
