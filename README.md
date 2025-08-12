@@ -42,6 +42,10 @@ A desktop application using JavaFX for question answering over local documents u
 ## Notes
 The generated index files are stored as JSON files in a subdirectory. These embeddings are loaded in the next session if needed. I am currently using _tinyllama_ as the embedding model. Be warned, it may take some time to index all your files.
 
+## Urgent
+- Move long-running operations (embedding, indexing, answering questions) to JavaFX Tasks or background threads.
+- Use Platform.runLater to update UI elements (progress bars, cursor, messageBar) from those threads.
+
 ## To-Dos
 - Improve UI/UX
 - Run background tasks for the UI
