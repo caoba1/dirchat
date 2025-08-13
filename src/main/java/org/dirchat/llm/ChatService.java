@@ -4,13 +4,18 @@ import org.dirchat.document.ParsedDocument;
 import org.dirchat.document.TextChunker;
 import org.dirchat.embedding.EmbeddingService; //todo: just use vector store directly
 import org.dirchat.embedding.VectorStore;
+import org.dirchat.embedding.VectorStore.ScoredChunk;
 import org.dirchat.model.Chunk;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
 import dev.langchain4j.model.language.LanguageModel;
 import dev.langchain4j.model.ollama.OllamaLanguageModel;
+import org.dirchat.util.DocumentSimilarity;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Comparator;
 import java.util.stream.Collectors;
 
 public class ChatService {
@@ -20,6 +25,11 @@ public class ChatService {
     private final VectorStore vectorStore;
     private final List<ParsedDocument> documents;
     private final TextChunker textChunker;
+
+    private static java.util.function.Consumer<String> messageBarSetter;
+
+    public static final int DOCUMENT_RANK = 5;
+    public static final int MAX_SEARCH_RESULTS = 5;
 
     public ChatService(VectorStore vectorStore, List<ParsedDocument> documents, TextChunker textChunker) {
         this.vectorStore = vectorStore;
@@ -37,24 +47,85 @@ public class ChatService {
                 .build();
     }
 
+    public static void setMessageBarSetter(java.util.function.Consumer<String> setter) {
+        messageBarSetter = setter;
+    }
+
+    private void setMessageBar(String msg) {
+        if (messageBarSetter != null) messageBarSetter.accept(msg);
+    }
+
     // RAG
-    public String answerQuestion(String question, int topK) {
+    public List<ScoredChunk> getTopDocumentChunks(String question) {
         float[] vector = embeddingModel.embed(question).content().vector();
-        List<Double> queryVector = new java.util.ArrayList<Double>(vector.length);
-        for (float v : vector) {
-            queryVector.add((double) v);
+        List<Double> queryVector = new java.util.ArrayList<>(vector.length);
+        for (float v : vector) queryVector.add((double) v);
+        // Get all scored chunks
+        List<ScoredChunk> allScoredChunks = vectorStore.searchWithScores(queryVector, 1000);
+        // Separate metadata and content chunks
+        List<ScoredChunk> metadataChunks = new java.util.ArrayList<>();
+        List<ScoredChunk> contentChunks = new java.util.ArrayList<>();
+        for (ScoredChunk sc : allScoredChunks) {
+            if ("metadata".equals(sc.getChunk().getChunkType())) {
+                metadataChunks.add(sc);
+            } else {
+                contentChunks.add(sc);
+            }
         }
-        List<Chunk> relevantChunks = vectorStore.search(queryVector, topK);
+        // Prioritize content chunks, but always include the top metadata chunk if it's highly relevant
+        List<ScoredChunk> topChunks = new java.util.ArrayList<>();
+        // Add top content chunks first
+        topChunks.addAll(contentChunks.stream().limit(MAX_SEARCH_RESULTS).collect(java.util.stream.Collectors.toList()));
+        // If a metadata chunk is in the top 3 overall, add it to the front
+        if (!metadataChunks.isEmpty() && (allScoredChunks.indexOf(metadataChunks.get(0)) < 3)) {
+            topChunks.add(0, metadataChunks.get(0));
+        }
+        // Limit to MAX_SEARCH_RESULTS
+        if (topChunks.size() > MAX_SEARCH_RESULTS) {
+            topChunks = topChunks.subList(0, MAX_SEARCH_RESULTS);
+        }
+        return topChunks;
+    }
 
-        String context = relevantChunks.stream()
-                .map(chunk -> reconstructChunkContent(chunk))
-                .collect(Collectors.joining("\n\n"));
+    public List<String> getTopDocumentSummaries(String question) {
+        List<ScoredChunk> topChunks = getTopDocumentChunks(question);
+        // Group by document and calculate average score
+        Map<String, List<ScoredChunk>> docToChunks = new java.util.HashMap<>();
+        for (ScoredChunk sc : topChunks) {
+            String doc = sc.getChunk().getSourceFile();
+            docToChunks.computeIfAbsent(doc, k -> new java.util.ArrayList<>()).add(sc);
+        }
 
-        String prompt = "Answer the following question based on the context below.\n\n"
-                + "Context:\n" + context + "\n\n"
-                + "Question:\n" + question;
+        List<String> summaries = new java.util.ArrayList<>();
+        for (Map.Entry<String, List<ScoredChunk>> entry : docToChunks.entrySet()) {
+            String doc = entry.getKey();
+            List<ScoredChunk> chunks = entry.getValue();
+            double avgScore = chunks.stream().mapToDouble(ScoredChunk::getScore).average().orElse(0.0);
+            summaries.add(doc + " (avg score: " + String.format("%.3f", avgScore) + ")");
+        }
+        return summaries;
+    }
 
-        return languageModel.generate(prompt).content();
+    public String answerQuestion(String question, int topK) {
+        try {
+            List<ScoredChunk> topChunks = getTopDocumentChunks(question);
+            String context = topChunks.stream()
+                    .map(sc -> {
+                        Chunk chunk = sc.getChunk();
+                        String typeLabel = "metadata".equals(chunk.getChunkType()) ? "[METADATA]\n" : "";
+                        return typeLabel + reconstructChunkContent(chunk);
+                    })
+                    .collect(Collectors.joining("\n\n"));
+            String prompt = "Answer the following question based on the context below.\n\n"
+                    + "Context:\n" + context + "\n\n"
+                    + "Question:\n" + question;
+
+            return languageModel.generate(prompt).content();
+        } catch (Exception ex) {
+            if (messageBarSetter != null) messageBarSetter.accept("Error: Unable to reach the language server. Please check your server connection.");
+            java.util.logging.Logger.getLogger(ChatService.class.getName()).warning("Failed to answer question: '" + question + "', reason: " + ex.getMessage());
+            return "[Error: Unable to reach the language server. Please check your server connection.]";
+        }
     }
 
     private String reconstructChunkContent(Chunk chunk) {

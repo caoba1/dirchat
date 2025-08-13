@@ -10,17 +10,33 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class DocumentLoader {
 
     private final Tika tika = new Tika();
+    // Allows the UI to register a callback for message bar updates.
+    // This decouples backend logic from the UI, so DocumentLoader can notify the user without knowing about UI classes.
+    private static java.util.function.Consumer<String> messageBarSetter;
+    public static void setMessageBarSetter(java.util.function.Consumer<String> setter) {
+        messageBarSetter = setter;
+    }
+    // Use this to send a message to the UI message bar (if registered)
+    private void setMessageBar(String msg) {
+        if (messageBarSetter != null) messageBarSetter.accept(msg);
+    }
+
+    private static final Logger logger = Logger.getLogger(DocumentLoader.class.getName());
 
     public List<ParsedDocument> loadDocumentsFromFolder(String folderPath) {
         List<ParsedDocument> documents = new ArrayList<>();
         File folder = new File(folderPath);
 
         if (!folder.exists() || !folder.isDirectory()) {
-            System.err.println("Invalid folder path: " + folderPath);
+            String errMsg = "Invalid folder path: " + folderPath;
+            System.err.println(errMsg);
+            logger.warning(errMsg);
+            setMessageBar(errMsg);
             return documents;
         }
 
@@ -29,8 +45,14 @@ public class DocumentLoader {
                 try {
                     String content = parseDocument(file);
                     documents.add(new ParsedDocument(file.getName(), content));
+                    String msg = "Loaded document: " + file.getName();
+                    logger.info(msg);
+                    setMessageBar(msg);
                 } catch (Exception e) {
-                    System.err.println("Failed to parse: " + file.getName());
+                    String errMsg = "Failed to parse: " + file.getName();
+                    System.err.println(errMsg);
+                    logger.warning(errMsg + ", reason: " + e.getMessage());
+                    setMessageBar(errMsg);
                     e.printStackTrace();
                 }
             }

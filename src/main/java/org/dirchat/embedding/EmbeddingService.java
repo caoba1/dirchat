@@ -3,17 +3,23 @@ package org.dirchat.embedding;
 import org.dirchat.model.Chunk;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
+import org.dirchat.util.LogMessages;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 import java.util.stream.Collectors;
 
 public class EmbeddingService {
@@ -27,6 +33,30 @@ public class EmbeddingService {
     private static String startPromptCache = null;
     private final String baseUrl;
     private final EmbeddingModel embeddingModel;
+
+    private static final Logger logger = Logger.getLogger(EmbeddingService.class.getName());
+    private ResourceBundle messages = ResourceBundle.getBundle("messages");
+    static {
+        try {
+            FileHandler fh = new FileHandler("dirchat.log", true);
+            fh.setFormatter(new SimpleFormatter());
+            logger.addHandler(fh);
+            logger.setUseParentHandlers(true);
+        } catch (Exception e) {
+            System.err.println("Failed to set up logger: " + e.getMessage());
+        }
+    }
+
+    // Allows the UI to register a callback for message bar updates.
+    // This decouples backend logic from the UI, so EmbeddingService can notify the user without knowing about UI classes.
+    private static java.util.function.Consumer<String> messageBarSetter;
+    public static void setMessageBarSetter(java.util.function.Consumer<String> setter) {
+        messageBarSetter = setter;
+    }
+    // Use this to send a message to the UI message bar (if registered)
+    private void setMessageBar(String msg) {
+        if (messageBarSetter != null) messageBarSetter.accept(msg);
+    }
 
     public EmbeddingService() {
         this(BASE_URL);
@@ -70,6 +100,7 @@ public class EmbeddingService {
         try {
             Files.createDirectories(vectorsDir);
         } catch (IOException e) {
+            logger.warning("Failed to create vectors directory: " + e.getMessage());
             throw new RuntimeException("Failed to create vectors directory", e);
         }
         // File for this document's embeddings
@@ -79,37 +110,49 @@ public class EmbeddingService {
         if (indexFile.exists()) {
             try {
                 embeddings = vectorStore.load(indexFile.getAbsolutePath());
-                System.out.println("Loaded embeddings from " + indexFile.getName());
+                System.out.println(MessageFormat.format(messages.getString("log.loadedEmbeddings"), indexFile.getName()));
+                String loadedMsg = MessageFormat.format(LogMessages.LOADED_EMBEDDINGS, indexFile.getName());
+                logger.info(loadedMsg);
+                setMessageBar(loadedMsg);
                 return embeddings;
             } catch (IOException e) {
-                throw new RuntimeException("Failed to load " + indexFile.getName(), e);
+                logger.warning("Failed to load index file: " + indexFile.getAbsolutePath() + ", reason: " + e.getMessage());
+                throw new RuntimeException(MessageFormat.format(messages.getString("log.failedToLoadIndex"), indexFile.getName(), e.getMessage()), e);
             }
         } else {
             embeddings = new HashMap<>();
             int total = chunks.size();
             for (int i = 0; i < total; i++) {
                 Chunk chunk = chunks.get(i);
-                // Todo: Use parallel processing for better performance
                 float[] vector = embeddingModel.embed(chunk.getContent()).content().vector();
                 List<Double> vectorList = floatArrayToDoubleList(vector);
                 embeddings.put(chunk, vectorList);
-
-                // Progress bar
-                double progress = ((((double) i + 1) / (double) total) * 50.0); // 50 chars wide
+                // Progress bar (console only)
+                double progress = ((((double) i + 1) / (double) total) * 50.0);
                 String bar = "[" + "=".repeat((int) progress) + " ".repeat(50 - (int) progress) + "]";
                 double percent = ((((double) i + 1) / (double) total) * 100.0);
                 String percentString = String.format("%.4f", percent);
-                System.out.print("\r" + bar + " " + percentString + "%");
+                String logMsg = bar + " " + percentString + "% for " + chunk.getSourceFile() + " [chunk " + (i+1) + "/" + total + "]";
+                System.out.print("\r" + logMsg);
             }
-            System.out.println(); // Move to next line after completion
+            System.out.println();
             try {
                 vectorStore.save(embeddings, indexFile.getAbsolutePath());
-                System.out.println("Saved embeddings to " + indexFile.getName());
+                System.out.println(MessageFormat.format(messages.getString("log.generatedIndex"), docFileName));
+                String generatedMsg = MessageFormat.format(LogMessages.GENERATED_INDEX, docFileName);
+                logger.info(generatedMsg);
+                setMessageBar(generatedMsg);
             } catch (IOException e) {
-                throw new RuntimeException("Failed to save " + indexFile.getName(), e);
+                logger.warning("Failed to save index file: " + indexFile.getAbsolutePath() + ", reason: " + e.getMessage());
+                throw new RuntimeException(MessageFormat.format(messages.getString("log.failedToSaveIndex"), indexFile.getName(), e.getMessage()), e);
             }
             return embeddings;
         }
+    }
+
+    public List<Double> embedChunk(Chunk chunk, String docFolderPath, String docFileName) {
+        float[] vector = embeddingModel.embed(chunk.getContent()).content().vector();
+        return floatArrayToDoubleList(vector);
     }
 
     private List<Double> floatArrayToDoubleList(float[] array) {

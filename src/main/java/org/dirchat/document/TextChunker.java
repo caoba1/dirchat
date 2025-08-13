@@ -21,6 +21,11 @@ public class TextChunker {
 
     public List<Chunk> chunkText(String text, String sourceFileName) {
         List<Chunk> chunks = new ArrayList<>();
+        // --- Add metadata chunk (e.g., TOC or chapter info) ---
+        String metadataContent = extractMetadata(text); // You can improve this extraction as needed
+        if (metadataContent != null && !metadataContent.isBlank()) {
+            chunks.add(new Chunk(sourceFileName, -1, metadataContent, "metadata"));
+        }
         String[] paragraphs = text.split("\\r?\\n\\r?\\n");
         int chunkIndex = 0;
         int step = paragraphsPerChunk - overlap;
@@ -38,5 +43,18 @@ public class TextChunker {
             }
         }
         return chunks;
+    }
+
+    // Simple metadata extraction: first non-empty paragraph, or customize as needed
+    private String extractMetadata(String text) {
+        String[] paragraphs = text.split("\\r?\\n\\r?\\n");
+        for (String para : paragraphs) {
+            String trimmed = para.trim();
+            if (!trimmed.isEmpty()) {
+                // ToDo: add more logic to detect TOC, chapter, etc.
+                return trimmed;
+            }
+        }
+        return null;
     }
 }

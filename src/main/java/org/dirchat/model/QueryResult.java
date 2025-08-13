@@ -7,9 +7,21 @@ public class QueryResult {
     private final String answer;
     private final List<Chunk> referencedChunks;
 
+    private final Chunk chunk;
+    private final double score;
+
     public QueryResult(String answer, List<Chunk> referencedChunks) {
         this.answer = answer;
         this.referencedChunks = referencedChunks;
+        this.chunk = null;
+        this.score = 0.0;
+    }
+
+    public QueryResult(Chunk chunk, double score) {
+        this.answer = null;
+        this.referencedChunks = null;
+        this.chunk = chunk;
+        this.score = score;
     }
 
     public String getAnswer() {
@@ -18,6 +30,14 @@ public class QueryResult {
 
     public List<Chunk> getReferencedChunks() {
         return referencedChunks;
+    }
+
+    public Chunk getChunk() {
+        return chunk;
+    }
+
+    public double getScore() {
+        return score;
     }
 
     @Override

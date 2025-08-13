@@ -11,7 +11,25 @@ import org.jetbrains.annotations.NotNull;
 public class MainApp extends Application {
 
     public static void main(String[] args) {
+        clearLogAndDeleteLckFiles();
         launch(args);
+    }
+
+    private static void clearLogAndDeleteLckFiles() {
+        try {
+            // Truncate dirchat.log
+            java.nio.file.Files.write(java.nio.file.Paths.get("dirchat.log"), new byte[0], java.nio.file.StandardOpenOption.TRUNCATE_EXISTING, java.nio.file.StandardOpenOption.CREATE);
+            // Delete .lck files in current directory
+            java.io.File cwd = new java.io.File(".");
+            java.io.File[] lckFiles = cwd.listFiles((dir, name) -> name.endsWith(".lck"));
+            if (lckFiles != null) {
+                for (java.io.File f : lckFiles) {
+                    f.delete();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to clear log or delete .lck files: " + e.getMessage());
+        }
     }
 
     @Override

@@ -20,9 +20,17 @@ public class VectorStore {
     public List<Chunk> search(List<Double> queryVector, int topK) {
         return store.entrySet().stream()
                 .map(entry -> new ScoredChunk(entry.getKey(), cosineSimilarity(queryVector, entry.getValue())))
-                .sorted(Comparator.comparingDouble(ScoredChunk::score).reversed())
+                .sorted(Comparator.comparingDouble(ScoredChunk::getScore).reversed())
                 .limit(topK)
-                .map(ScoredChunk::chunk)
+                .map(ScoredChunk::getChunk)
+                .collect(Collectors.toList());
+    }
+
+    public List<ScoredChunk> searchWithScores(List<Double> queryVector, int topK) {
+        return store.entrySet().stream()
+                .map(entry -> new ScoredChunk(entry.getKey(), cosineSimilarity(queryVector, entry.getValue())))
+                .sorted(Comparator.comparingDouble(ScoredChunk::getScore).reversed())
+                .limit(topK)
                 .collect(Collectors.toList());
     }
 
@@ -56,21 +64,14 @@ public class VectorStore {
         return chunkMap;
     }
 
-    private static class ScoredChunk {
+    public static class ScoredChunk {
         private final Chunk chunk;
         private final double score;
-
         public ScoredChunk(Chunk chunk, double score) {
             this.chunk = chunk;
             this.score = score;
         }
-
-        public Chunk chunk() {
-            return chunk;
-        }
-
-        public double score() {
-            return score;
-        }
+        public Chunk getChunk() { return chunk; }
+        public double getScore() { return score; }
     }
 }
