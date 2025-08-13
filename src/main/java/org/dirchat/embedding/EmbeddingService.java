@@ -21,6 +21,8 @@ import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 import java.util.stream.Collectors;
+import org.dirchat.document.TextChunker;
+import org.dirchat.util.ConfigManager;
 
 public class EmbeddingService {
 
@@ -33,8 +35,10 @@ public class EmbeddingService {
     private static String startPromptCache = null;
     private final String baseUrl;
     private final EmbeddingModel embeddingModel;
+    private final TextChunker textChunker;
 
     private static final Logger logger = Logger.getLogger(EmbeddingService.class.getName());
+
     private ResourceBundle messages = ResourceBundle.getBundle("messages");
     static {
         try {
@@ -68,6 +72,10 @@ public class EmbeddingService {
                 .baseUrl(baseUrl)
                 .modelName("tinyllama") // or mistral, llama2, gemma, etc.
                 .build();
+        // Initialize TextChunker with paragraphsPerChunk and overlap from config
+        int paragraphsPerChunk = ConfigManager.getParagraphsPerChunk();
+        int overlap = ConfigManager.getOverlap();
+        this.textChunker = new TextChunker(paragraphsPerChunk, overlap);
     }
 
     // Optionally, provide a getter for the start prompt
@@ -160,5 +168,33 @@ public class EmbeddingService {
                 .mapToDouble(i -> array[i])
                 .boxed()
                 .collect(Collectors.toList());
+    }
+
+    // Centralized method to index all documents in a folder
+    // Loads, chunks, embeds, and saves vectors for each document
+    // Updates the message bar and logs progress
+    public void createIndex(String folderPath) {
+        try {
+            setMessageBar("Starting indexing for folder: " + folderPath);
+            logger.info("Starting indexing for folder: " + folderPath);
+            // Load all documents in the folder
+            org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
+            List<org.dirchat.document.ParsedDocument> documents = loader.loadDocumentsFromFolder(folderPath);
+            int totalDocs = documents.size();
+            int currentDoc = 0;
+            for (org.dirchat.document.ParsedDocument doc : documents) {
+                currentDoc++;
+                setMessageBar("Indexing document [" + currentDoc + "/" + totalDocs + "]: " + doc.getFileName());
+                logger.info("Indexing document: " + doc.getFileName());
+                List<org.dirchat.model.Chunk> docChunks = textChunker.chunkText(doc.getContent(), doc.getFileName());
+                // Embed and save
+                this.embedChunks(docChunks, folderPath, doc.getFileName());
+            }
+            setMessageBar("Indexing complete for folder: " + folderPath);
+            logger.info("Indexing complete for folder: " + folderPath);
+        } catch (Exception e) {
+            setMessageBar("Indexing failed: " + e.getMessage());
+            logger.warning("Indexing failed: " + e.getMessage());
+        }
     }
 }

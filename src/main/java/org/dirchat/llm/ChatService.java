@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Comparator;
 import java.util.stream.Collectors;
+import java.util.logging.Logger;
 
 public class ChatService {
 
@@ -30,6 +31,8 @@ public class ChatService {
 
     public static final int DOCUMENT_RANK = 5;
     public static final int MAX_SEARCH_RESULTS = 5;
+
+    private static final Logger logger = Logger.getLogger(ChatService.class.getName());
 
     public ChatService(VectorStore vectorStore, List<ParsedDocument> documents, TextChunker textChunker) {
         this.vectorStore = vectorStore;
@@ -123,7 +126,7 @@ public class ChatService {
             return languageModel.generate(prompt).content();
         } catch (Exception ex) {
             if (messageBarSetter != null) messageBarSetter.accept("Error: Unable to reach the language server. Please check your server connection.");
-            java.util.logging.Logger.getLogger(ChatService.class.getName()).warning("Failed to answer question: '" + question + "', reason: " + ex.getMessage());
+            logger.warning("Failed to answer question: '" + question + "', reason: " + ex.getMessage());
             return "[Error: Unable to reach the language server. Please check your server connection.]";
         }
     }

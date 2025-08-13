@@ -11,6 +11,7 @@ import org.dirchat.embedding.EmbeddingService;
 import org.dirchat.embedding.VectorStore;
 import org.dirchat.llm.ChatService;
 import org.dirchat.model.Chunk;
+
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.fxml.FXML;
@@ -57,6 +58,8 @@ public class UIController {
     private Label messageBar;
     @FXML
     private BorderPane mainBorderPane;
+    @FXML
+    private Button configButton;
 
     private static final Logger logger = Logger.getLogger(UIController.class.getName());
     static {
@@ -79,6 +82,10 @@ public class UIController {
         folderLabel.setText(messages.getString("label.noFolderSelected"));
         questionField.setPromptText(messages.getString("prompt.typeQuestion"));
         loadFolderButton.setOnAction(e -> handleLoadFolder());
+        configButton.setOnAction(e -> {
+            Stage stage = (Stage) mainBorderPane.getScene().getWindow();
+            new org.dirchat.controller.ConfigDialog(stage).showAndWait(); // Show config dialog and wait for it to close
+        });
         askButton.setOnAction(e -> handleAskQuestion());
         chatListView.getItems().clear();
         // Register messageBar setters so backend/services can update the UI message bar
@@ -105,83 +112,10 @@ public class UIController {
             logger.info(msg);
             setMessageBar(msg);
             folderLabel.setText(MessageFormat.format(messages.getString("label.selectedFolder"), selectedFolder.getAbsolutePath()));
-            List<ParsedDocument> documents = documentLoader.loadDocumentsFromFolder(selectedFolder.getAbsolutePath());
-            List<Chunk> allChunks = new ArrayList<>();
-
-            // UI Elements reset
-            indexStatusList.getItems().clear();
-            progressBar.setProgress(0);
-            folderProgressBar.setProgress(0);
-            mainBorderPane.setCursor(Cursor.WAIT);
-
-            File vectorsDir = new File(selectedFolder, "vectorstore/vectors");
-            if (!vectorsDir.exists()) {
-                vectorsDir.mkdirs();
-            }
-
-            int totalDocs = documents.size();
-            int currentDoc = 0;
-            for (ParsedDocument doc : documents) {
-                File indexFile = new File(vectorsDir, doc.getFileName() + ".index");
-                Map<Chunk, List<Double>> docEmbeddings;
-                List<Chunk> docChunks = textChunker.chunkText(doc.getContent(), doc.getFileName());
-                int totalChunks = docChunks.size();
-                int currentChunk = 0;
-                if (indexFile.exists()) {
-                    try {
-                        docEmbeddings = vectorStore.load(indexFile.getAbsolutePath());
-                        indexStatusList.getItems().add(MessageFormat.format(messages.getString("status.indexLoaded"), doc.getFileName()));
-                        progressBar.setProgress(1.0); // Set progress bar to 100% if loaded from .index
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                        logger.warning("Failed to load index for file: " + doc.getFileName() + ", reason: " + ex.getMessage());
-                        chatListView.getItems().add(MessageFormat.format(messages.getString("error.failedToLoadIndex"), doc.getFileName(), ex.getMessage()) + "\n");
-                        indexStatusList.getItems().add(MessageFormat.format(messages.getString("status.indexLoadFailed"), doc.getFileName()));
-                        continue;
-                    }
-                } else {
-                    docEmbeddings = new java.util.LinkedHashMap<>();
-                    for (Chunk chunk : docChunks) {
-                        try {
-                            List<Double> embedding = embeddingService.embedChunk(chunk, selectedFolder.getAbsolutePath(), doc.getFileName());
-                            docEmbeddings.put(chunk, embedding);
-                        } catch (Exception ex) {
-                            logger.warning("Failed to embed chunk for file: " + doc.getFileName() + ", chunk index: " + chunk.getIndex() + ", reason: " + ex.getMessage());
-                        }
-                        currentChunk++;
-                        progressBar.setProgress((double) currentChunk / totalChunks);
-                        // Progress message for chunk processing
-                        double docPercent = ((double) (currentDoc + 1) / totalDocs) * 100.0;
-                        double chunkPercent = ((double) currentChunk / totalChunks) * 100.0;
-                        String progressMsg = String.format(
-                            "Processing chunk %d (%.0f%%) in document %d (%.0f%% of documents)",
-                            currentChunk, chunkPercent, currentDoc + 1, docPercent
-                        );
-                        setMessageBar(progressMsg);
-                        logger.info(progressMsg);
-                    }
-                    try {
-                        vectorStore.save(docEmbeddings, indexFile.getAbsolutePath());
-                        indexStatusList.getItems().add(MessageFormat.format(messages.getString("status.indexGenerated"), doc.getFileName()));
-                    } catch (Exception ex) {
-                        logger.warning("Failed to save index for file: " + doc.getFileName() + ", reason: " + ex.getMessage());
-                        chatListView.getItems().add(MessageFormat.format(messages.getString("error.failedToSaveIndex"), doc.getFileName(), ex.getMessage()) + "\n");
-                        indexStatusList.getItems().add(MessageFormat.format(messages.getString("status.indexSaveFailed"), doc.getFileName()));
-                    }
-                }
-                vectorStore.addAll(docEmbeddings);
-                currentDoc++;
-                folderProgressBar.setProgress((double) currentDoc / totalDocs);
-            }
-
-            chatService = new ChatService(vectorStore, documents, textChunker);
-            String indexedMsg = MessageFormat.format(messages.getString("status.documentsIndexed"), documents.size());
-            chatListView.getItems().add(indexedMsg + "\n");
-            folderProgressBar.setProgress(1.0);
-            progressBar.setProgress(1.0);
-
-            // Update cursor
-            mainBorderPane.setCursor(Cursor.DEFAULT);
+            // Centralized: call EmbeddingService.createIndex to handle all indexing logic
+            mainBorderPane.setCursor(Cursor.WAIT); // Set cursor to hourglass
+            embeddingService.createIndex(selectedFolder.getAbsolutePath());
+            mainBorderPane.setCursor(Cursor.DEFAULT); // Reset cursor
         }
     }
 

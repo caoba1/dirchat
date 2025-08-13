@@ -19,7 +19,8 @@
                     <Insets bottom="10" left="10" right="10" top="10" />
                 </padding>
                 <Button fx:id="loadFolderButton" text="📁 Load Folder" />
-               <Label fx:id="folderLabel" style="-fx-font-size: 11; -fx-text-fill: #555;" text="No folder selected" />
+                <Label fx:id="folderLabel" style="-fx-font-size: 11; -fx-text-fill: #555;" text="No folder selected" />
+                <Button fx:id="configButton" text="⚙️ Config" />
             </HBox>
             <ProgressBar fx:id="folderProgressBar" prefHeight="6.0" prefWidth="501.0" progress="0.0" />
             <ProgressBar fx:id="progressBar" prefHeight="6.0" prefWidth="501.0" progress="0.0" />
