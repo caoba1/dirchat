@@ -36,10 +36,11 @@ public class EmbeddingService {
     private final String baseUrl;
     private final EmbeddingModel embeddingModel;
     private final TextChunker textChunker;
-
-    private static final Logger logger = Logger.getLogger(EmbeddingService.class.getName());
+    private final String embeddingMethod;
 
     private ResourceBundle messages = ResourceBundle.getBundle("messages");
+    private static final Logger logger = Logger.getLogger(EmbeddingService.class.getName());
+
     static {
         try {
             FileHandler fh = new FileHandler("dirchat.log", true);
@@ -63,15 +64,21 @@ public class EmbeddingService {
     }
 
     public EmbeddingService() {
-        this(BASE_URL);
+        this(BASE_URL, ConfigManager.getIndexingMethod());
     }
 
     public EmbeddingService(String baseUrl) {
+        this(baseUrl, ConfigManager.getIndexingMethod());
+    }
+
+    public EmbeddingService(String baseUrl, String embeddingMethod) {
         this.baseUrl = baseUrl;
+        this.embeddingMethod = embeddingMethod;
+        // Only support OllamaEmbeddingModel for now
         this.embeddingModel = OllamaEmbeddingModel.builder()
-                .baseUrl(baseUrl)
-                .modelName("tinyllama") // or mistral, llama2, gemma, etc.
-                .build();
+            .baseUrl(baseUrl)
+            .modelName("tinyllama")
+            .build();
         // Initialize TextChunker with paragraphsPerChunk and overlap from config
         int paragraphsPerChunk = ConfigManager.getParagraphsPerChunk();
         int overlap = ConfigManager.getOverlap();
@@ -113,19 +120,24 @@ public class EmbeddingService {
         }
         // File for this document's embeddings
         File indexFile = vectorsDir.resolve(docFileName + ".index").toFile();
-        VectorStore vectorStore = new VectorStore();
+        VectorStore vectorStore = new VectorStore(docFolderPath); // Ensure VectorStore is instantiated
         Map<Chunk, List<Double>> embeddings;
-        if (indexFile.exists()) {
+        if (vectorStore.indexExists(docFileName)) {
             try {
-                embeddings = vectorStore.load(indexFile.getAbsolutePath());
-                System.out.println(MessageFormat.format(messages.getString("log.loadedEmbeddings"), indexFile.getName()));
-                String loadedMsg = MessageFormat.format(LogMessages.LOADED_EMBEDDINGS, indexFile.getName());
+                String dbType = org.dirchat.util.ConfigManager.getDatabaseType();
+                if (dbType.equalsIgnoreCase("file")) {
+                    embeddings = vectorStore.load(docFileName);
+                } else {
+                    embeddings = vectorStore.loadFromSqlite();
+                }
+                System.out.println(MessageFormat.format(messages.getString("log.loadedEmbeddings"), docFileName));
+                String loadedMsg = MessageFormat.format(LogMessages.LOADED_EMBEDDINGS, docFileName);
                 logger.info(loadedMsg);
                 setMessageBar(loadedMsg);
                 return embeddings;
-            } catch (IOException e) {
-                logger.warning("Failed to load index file: " + indexFile.getAbsolutePath() + ", reason: " + e.getMessage());
-                throw new RuntimeException(MessageFormat.format(messages.getString("log.failedToLoadIndex"), indexFile.getName(), e.getMessage()), e);
+            } catch (Exception e) {
+                logger.warning("Failed to load index for " + docFileName + ", reason: " + e.getMessage());
+                throw new RuntimeException(MessageFormat.format(messages.getString("log.failedToLoadIndex"), docFileName, e.getMessage()), e);
             }
         } else {
             embeddings = new HashMap<>();
@@ -145,14 +157,19 @@ public class EmbeddingService {
             }
             System.out.println();
             try {
-                vectorStore.save(embeddings, indexFile.getAbsolutePath());
+                String dbType = org.dirchat.util.ConfigManager.getDatabaseType();
+                if (dbType.equalsIgnoreCase("file")) {
+                    vectorStore.save(docFileName, embeddings);
+                } else {
+                    vectorStore.saveToSqlite(embeddings);
+                }
                 System.out.println(MessageFormat.format(messages.getString("log.generatedIndex"), docFileName));
                 String generatedMsg = MessageFormat.format(LogMessages.GENERATED_INDEX, docFileName);
                 logger.info(generatedMsg);
                 setMessageBar(generatedMsg);
-            } catch (IOException e) {
-                logger.warning("Failed to save index file: " + indexFile.getAbsolutePath() + ", reason: " + e.getMessage());
-                throw new RuntimeException(MessageFormat.format(messages.getString("log.failedToSaveIndex"), indexFile.getName(), e.getMessage()), e);
+            } catch (Exception e) {
+                logger.warning("Failed to save index for " + docFileName + ", reason: " + e.getMessage());
+                throw new RuntimeException(MessageFormat.format(messages.getString("log.failedToSaveIndex"), docFileName, e.getMessage()), e);
             }
             return embeddings;
         }
@@ -175,8 +192,9 @@ public class EmbeddingService {
     // Updates the message bar and logs progress
     public void createIndex(String folderPath) {
         try {
-            setMessageBar("Starting indexing for folder: " + folderPath);
-            logger.info("Starting indexing for folder: " + folderPath);
+
+            setMessageBar(MessageFormat.format(messages.getString("status.startIndexing"), folderPath));
+            logger.info(MessageFormat.format(messages.getString("status.startIndexing"), folderPath));
             // Load all documents in the folder
             org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
             List<org.dirchat.document.ParsedDocument> documents = loader.loadDocumentsFromFolder(folderPath);
@@ -196,5 +214,9 @@ public class EmbeddingService {
             setMessageBar("Indexing failed: " + e.getMessage());
             logger.warning("Indexing failed: " + e.getMessage());
         }
+    }
+
+    public String getEmbeddingMethod() {
+        return embeddingMethod;
     }
 }

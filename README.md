@@ -57,6 +57,11 @@ The generated index files are stored as JSON files in a subdirectory. These embe
 - Try other models, explore other API providers, use a task-specific model (**!**)
 - Develop towards a distributable
 - Linux support
+- **Improve Indexing Pipeline readability**
+- **Change name to retriever**
+- **Prompt augmentation task**
+- **Configurable RAG process**
+- 
 
 
 (c) [caoba1](https://github.com/caoba1)  

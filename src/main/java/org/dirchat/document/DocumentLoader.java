@@ -60,11 +60,13 @@ public class DocumentLoader {
         return documents;
     }
 
+    /** Available supported files **/
     private boolean isSupported(File file) {
         String name = file.getName().toLowerCase();
         return name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".txt");
     }
 
+    /** Document parser **/
     private String parseDocument(File file) throws Exception {
         AutoDetectParser parser = new AutoDetectParser();
         BodyContentHandler handler = new BodyContentHandler(-1);

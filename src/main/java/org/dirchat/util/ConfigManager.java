@@ -53,4 +53,19 @@ public class ConfigManager {
             return 0;
         }
     }
+
+    public static String getDatabaseType() {
+        return properties.getProperty("database.type", "sqlite");
+    }
+
+    public static void setDatabaseType(String databaseType) throws IOException {
+        properties.setProperty("database.type", databaseType);
+        try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
+            properties.store(out, "Updated database type");
+        } catch (IOException e) {
+            System.err.println("Failed to save config file: " + e.getMessage());
+            logger.warning("Failed to save configuration file");
+            throw e;
+        }
+    }
 }

@@ -21,18 +21,28 @@ public class ConfigDialog extends Stage {
         methodSelector.getItems().addAll(methods);
         methodSelector.setValue(ConfigManager.getIndexingMethod());
 
+        String[] dbTypes = {"sqlite", "file"};
+        ComboBox<String> dbTypeSelector = new ComboBox<>();
+        dbTypeSelector.getItems().addAll(dbTypes);
+        dbTypeSelector.setValue(ConfigManager.getDatabaseType());
+
         Button saveButton = new Button("Save");
         saveButton.setOnAction(event -> {
             try{
                 ConfigManager.setIndexingMethod(methodSelector.getValue());
+                ConfigManager.setDatabaseType(dbTypeSelector.getValue());
                 close();
             } catch (Exception e) {
                 System.err.println("Failed to save configuration: " + e.getMessage());
             }
         });
 
-        VBox root = new VBox( 10,new Label("Indexing Method:"), methodSelector, saveButton);
+        VBox root = new VBox(10,
+            new Label("Indexing Method:"), methodSelector,
+            new Label("Database type:"), dbTypeSelector,
+            saveButton
+        );
         root.setPadding(new Insets(15));
-        setScene(new Scene(root, 300, 200));
+        setScene(new Scene(root, 300, 250));
     }
 }

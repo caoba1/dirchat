@@ -39,10 +39,26 @@ public class ChatService {
         this.documents = documents;
         this.textChunker = textChunker;
 
-        this.embeddingModel = OllamaEmbeddingModel.builder()
+        String indexingMethod = "tinyllama";
+        try {
+            String method = vectorStore.getIndexingMethod();
+            if (method != null && !method.isEmpty()) {
+                indexingMethod = method;
+            }
+        } catch (Exception e) {
+            logger.warning("Could not retrieve indexing method, defaulting to tinyllama: " + e.getMessage());
+        }
+
+        if (indexingMethod.equalsIgnoreCase("sbert")) {
+            this.embeddingModel = dev.langchain4j.model.embedding.SentenceTransformerEmbeddingModel.builder()
+                .modelName("sentence-transformers/all-MiniLM-L6-v2")
+                .build();
+        } else {
+            this.embeddingModel = OllamaEmbeddingModel.builder()
                 .baseUrl(EmbeddingService.BASE_URL)
                 .modelName("tinyllama")
                 .build();
+        }
 
         this.languageModel = OllamaLanguageModel.builder()
                 .baseUrl(EmbeddingService.BASE_URL)

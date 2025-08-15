@@ -36,8 +36,9 @@ public class UIController {
     private final DocumentLoader documentLoader = new DocumentLoader();
     private final TextChunker textChunker = new TextChunker(6); // 6 paragraphs per chunk
     private final EmbeddingService embeddingService = new EmbeddingService();
-    private final VectorStore vectorStore = new VectorStore();
+    private VectorStore vectorStore;
     private ChatService chatService;
+    private String selectedFolder;
     @FXML
     private TextField questionField;
     @FXML
@@ -117,6 +118,13 @@ public class UIController {
             embeddingService.createIndex(selectedFolder.getAbsolutePath());
             mainBorderPane.setCursor(Cursor.DEFAULT); // Reset cursor
         }
+    }
+
+    public void onFolderSelected(String folderPath) {
+        this.selectedFolder = folderPath;
+        this.vectorStore = new VectorStore(folderPath);
+        // Optionally, re-initialize chatService or other components here
+        // ...other logic for folder selection...
     }
 
     private void handleAskQuestion() {
