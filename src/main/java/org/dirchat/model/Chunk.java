@@ -18,6 +18,14 @@ public class Chunk {
         this.chunkType = chunkType;
     }
 
+    // Public no-argument constructor for Jackson deserialization
+    public Chunk() {
+        this.sourceFile = null;
+        this.index = 0;
+        this.content = null;
+        this.chunkType = "content";
+    }
+
     public String getSourceFile() {
         return sourceFile;
     }

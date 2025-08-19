@@ -21,7 +21,7 @@ import java.util.logging.Logger;
 
 public class ChatService {
 
-    private final EmbeddingModel embeddingModel;
+    private EmbeddingModel embeddingModel;
     private final LanguageModel languageModel;
     private final VectorStore vectorStore;
     private final List<ParsedDocument> documents;
@@ -49,21 +49,31 @@ public class ChatService {
             logger.warning("Could not retrieve indexing method, defaulting to tinyllama: " + e.getMessage());
         }
 
-        if (indexingMethod.equalsIgnoreCase("sbert")) {
+        if (indexingMethod.equalsIgnoreCase("default")) {
+            /* TODO
             this.embeddingModel = dev.langchain4j.model.embedding.SentenceTransformerEmbeddingModel.builder()
                 .modelName("sentence-transformers/all-MiniLM-L6-v2")
                 .build();
-        } else {
+
+             */
+            logger.info("Not implemented");
+        } else if (indexingMethod.equalsIgnoreCase("sbert")) {
             this.embeddingModel = OllamaEmbeddingModel.builder()
                 .baseUrl(EmbeddingService.BASE_URL)
-                .modelName("tinyllama")
+                .modelName("all-minilm:33m") // or other SBERT model
                 .build();
+        } else {
+            this.embeddingModel = OllamaEmbeddingModel.builder()
+                    .baseUrl(EmbeddingService.BASE_URL)
+                    .modelName("tinyllama") // or mistral, llama2, gemma, etc.
+                    .build();
         }
 
+        // Initialize the language model
         this.languageModel = OllamaLanguageModel.builder()
-                .baseUrl(EmbeddingService.BASE_URL)
-                .modelName("tinyllama") // or mistral, llama2, gemma, etc.
-                .build();
+                    .baseUrl(EmbeddingService.BASE_URL)
+                    .modelName("tinyllama") // or mistral, llama2, gemma, etc.
+                    .build();
     }
 
     public static void setMessageBarSetter(java.util.function.Consumer<String> setter) {

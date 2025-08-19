@@ -19,6 +19,7 @@ public class VectorStore {
     // SQLite database file name
     private String sqliteDbPath;
 
+    // Only this constructor is used to initialize the VectorStore with a specific folder
     public VectorStore(String selectedFolder) {
         // Ensure .dirchat directory exists
         Path dirPath = Path.of(selectedFolder, ".dirchat");
@@ -29,10 +30,6 @@ public class VectorStore {
         }
         // Set SQLite DB path to SelectedFolder/.dirchat/vectorstore.db
         this.sqliteDbPath = dirPath.resolve("vectorstore.db").toString();
-    }
-
-    public void setSqliteDbPath(String dbPath) {
-        this.sqliteDbPath = dbPath;
     }
 
     // Initialize SQLite DB and create table if not exists
@@ -127,6 +124,17 @@ public class VectorStore {
 
     // Save embeddings and metadata to SQLite
     public void saveToSqlite(Map<Chunk, List<Double>> embeddings) throws SQLException, IOException {
+        // Check if 'vectors' table exists, and initialize DB if missing
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            String checkTableSql = "SELECT name FROM sqlite_master WHERE type='table' AND name='vectors'";
+            try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(checkTableSql)) {
+                if (!rs.next()) {
+                    // Table does not exist, initialize DB
+                    initSqliteDb();
+                }
+            }
+        }
+        // Now proceed with saving
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
             String sql = "INSERT OR REPLACE INTO vectors (chunk_id, vector, metadata) VALUES (?, ?, ?)";
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {

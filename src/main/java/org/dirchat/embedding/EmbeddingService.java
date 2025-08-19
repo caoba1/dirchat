@@ -1,8 +1,12 @@
 package org.dirchat.embedding;
 
+import dev.langchain4j.model.huggingface.HuggingFaceEmbeddingModel;
 import org.dirchat.model.Chunk;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
+//import dev.langchain4j.model.embedding.DimensionAwareEmbeddingModel;
+
+import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
 import org.dirchat.util.LogMessages;
 
 import java.io.File;
@@ -34,13 +38,13 @@ public class EmbeddingService {
             Math.max(2, Runtime.getRuntime().availableProcessors()));
     private static String startPromptCache = null;
     private final String baseUrl;
-    private final EmbeddingModel embeddingModel;
+    private EmbeddingModel embeddingModel;
     private final TextChunker textChunker;
     private final String embeddingMethod;
 
     private ResourceBundle messages = ResourceBundle.getBundle("messages");
-    private static final Logger logger = Logger.getLogger(EmbeddingService.class.getName());
 
+    private static final Logger logger = Logger.getLogger(EmbeddingService.class.getName());
     static {
         try {
             FileHandler fh = new FileHandler("dirchat.log", true);
@@ -71,14 +75,12 @@ public class EmbeddingService {
         this(baseUrl, ConfigManager.getIndexingMethod());
     }
 
+    // Provides a tokenizer and the embedding model based on the embedding method
     public EmbeddingService(String baseUrl, String embeddingMethod) {
         this.baseUrl = baseUrl;
         this.embeddingMethod = embeddingMethod;
-        // Only support OllamaEmbeddingModel for now
-        this.embeddingModel = OllamaEmbeddingModel.builder()
-            .baseUrl(baseUrl)
-            .modelName("tinyllama")
-            .build();
+        this.embeddingModel = getMethodEmbeddingModel(this.embeddingMethod); //TODO: messages.properties
+
         // Initialize TextChunker with paragraphsPerChunk and overlap from config
         int paragraphsPerChunk = ConfigManager.getParagraphsPerChunk();
         int overlap = ConfigManager.getOverlap();
@@ -86,6 +88,7 @@ public class EmbeddingService {
     }
 
     // Optionally, provide a getter for the start prompt
+    // TODO Move to chatService
     public static String getStartPrompt() {
         if (startPromptCache != null) {
             return startPromptCache;
@@ -218,5 +221,34 @@ public class EmbeddingService {
 
     public String getEmbeddingMethod() {
         return embeddingMethod;
+    }
+
+    /**
+     * Returns a new EmbeddingModel instance based on the current embeddingMethod.
+     */
+    public EmbeddingModel getMethodEmbeddingModel(String embeddingMethod) {
+        EmbeddingModel methodEmbeddingModel = null;
+        if (embeddingMethod.equalsIgnoreCase("default")) {
+            // Not implemented: return null or throw exception
+            logger.info("Not implemented yet");
+            setMessageBar("Embedding method 'default' is not implemented yet. Please select 'sbert' or 'ollama'."); //TODO: messages.properties
+            return null;
+        } else if (embeddingMethod.equalsIgnoreCase("sbert")) {
+            methodEmbeddingModel = OllamaEmbeddingModel.builder()
+                    .baseUrl(EmbeddingService.BASE_URL)
+                    .modelName("all-minilm:33m")
+                    .build();
+            //TODO: messages.properties
+        } else if (embeddingMethod.equalsIgnoreCase("langchainALLMINI")) {
+            methodEmbeddingModel = new AllMiniLmL6V2EmbeddingModel();
+            //TODO: messages.properties
+        } else if (embeddingMethod.equalsIgnoreCase("tinyllama")) {
+            methodEmbeddingModel = OllamaEmbeddingModel.builder()
+                    .baseUrl(EmbeddingService.BASE_URL)
+                    .modelName("tinyllama")
+                    .build();
+            //TODO: messages.properties
+        }
+        return methodEmbeddingModel;
     }
 }
