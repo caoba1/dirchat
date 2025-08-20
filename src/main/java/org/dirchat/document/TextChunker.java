@@ -19,14 +19,9 @@ public class TextChunker {
         this(paragraphsPerChunk, 0);
     }
 
-    public List<Chunk> chunkText(String text, String sourceFileName) {
+    public List<Chunk> chunkText(String text, String sourceFileName, int documentId) {
         List<Chunk> chunks = new ArrayList<>();
-        // --- Add metadata chunk (e.g., TOC or chapter info) ---
-        String metadataContent = extractMetadata(text); // You can improve this extraction as needed
-        if (metadataContent != null && !metadataContent.isBlank()) {
-            chunks.add(new Chunk(sourceFileName, -1, metadataContent, "metadata"));
-        }
-        String[] paragraphs = text.split("\\r?\\n\\r?\\n");
+        String[] paragraphs = text.split("\r?\n\r?\n");
         int chunkIndex = 0;
         int step = paragraphsPerChunk - overlap;
         for (int i = 0; i < paragraphs.length; i += step) {
@@ -34,12 +29,16 @@ public class TextChunker {
             for (int j = 0; j < paragraphsPerChunk && (i + j) < paragraphs.length; j++) {
                 String trimmed = paragraphs[i + j].trim();
                 if (!trimmed.isEmpty()) {
-                    if (chunkContent.length() > 0) chunkContent.append("\n\n");
+                    if (!chunkContent.isEmpty()) chunkContent.append("\n\n");
                     chunkContent.append(trimmed);
                 }
             }
-            if (chunkContent.length() > 0) {
-                chunks.add(new Chunk(sourceFileName, chunkIndex++, chunkContent.toString()));
+            String chunkText = chunkContent.toString();
+            if (!chunkText.isEmpty()) {
+                Chunk chunk = new Chunk(sourceFileName, chunkIndex, chunkIndex, 0, 0, documentId, "content");
+                chunk.setContent(chunkText);
+                chunks.add(chunk);
+                chunkIndex++;
             }
         }
         return chunks;
@@ -56,5 +55,27 @@ public class TextChunker {
             }
         }
         return null;
+    }
+
+    /**
+     * Reconstruct chunk content from pointer fields using DocumentLoader.LoadedDocument.
+     * This assumes chunkIndex maps to a chunk in the chunked paragraphs,
+     * and cursorPointer is the character offset in the document content.
+     * You can adjust logic as needed for your chunking strategy.
+     */
+    public String getChunkContent(DocumentLoader.LoadedDocument doc, int chunkIndex, int pageNumber, int cursorPointer) {
+        String[] paragraphs = doc.content.split("\r?\n\r?\n");
+        int start = chunkIndex * paragraphsPerChunk;
+        int end = Math.min(start + paragraphsPerChunk, paragraphs.length);
+        StringBuilder chunkContent = new StringBuilder();
+        for (int i = start; i < end; i++) {
+            if (chunkContent.length() > 0) chunkContent.append("\n\n");
+            chunkContent.append(paragraphs[i].trim());
+        }
+        // Optionally, use cursorPointer to further slice the chunk
+        if (cursorPointer > 0 && cursorPointer < chunkContent.length()) {
+            return chunkContent.substring(cursorPointer);
+        }
+        return chunkContent.toString();
     }
 }

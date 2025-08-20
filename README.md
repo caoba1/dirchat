@@ -64,5 +64,32 @@ The generated index files are stored as JSON files in a subdirectory. These embe
 - 
 
 
+## Database Structure and Pointer-Based Chunk Access
+
+The application uses a SQLite database for all vector storage and retrieval. File-based index is no longer supported.
+
+- **TABLE_INDEX**: Stores global index properties (e.g., embedding method).
+- **TABLE_DOCUMENT**: Stores metadata for each document (filename, location, number of pages, filetype, TOC, metadata).
+- **TABLE_CHUNK**: Stores chunk pointers and embedding vectors. Each chunk entry includes:
+    - `document_id`: Reference to the document in TABLE_DOCUMENT
+    - `chunk_index`: Index of the chunk within the document
+    - `page_number`: Page number for the chunk (if applicable)
+    - `cursor_pointer`: Character offset or pointer for chunk reconstruction
+    - `embedding_vector`: The embedding vector for the chunk
+    - `metadata`: Additional metadata for the chunk
+
+**Pointer-Based Retrieval**
+- Chunk content is not stored in the database. Instead, chunk pointers (document_id, page_number, cursor_pointer) are used to reconstruct the chunk content at runtime using Apache Tika and the original document.
+- This approach reduces storage requirements and ensures accurate retrieval of chunk content.
+
+**How Retrieval Works**
+- When querying, the application retrieves the top relevant chunk pointers and uses them to reconstruct the chunk content from the original document using Tika and the chunker.
+- All metadata is stored in the appropriate table, not as a chunk.
+
+## Example Workflow
+1. **Indexing**: Documents are parsed and chunked. Embeddings and pointers are saved to the database.
+2. **Querying**: When a user asks a question, the most relevant chunks are found using embeddings. Their pointers are used to fetch the actual text from the original document.
+3. **Answering**: The retrieved chunk contents are provided as context to the language model for generating answers.
+
 (c) [caoba1](https://github.com/caoba1)  
 Licensed under the [MIT License](LICENSE)

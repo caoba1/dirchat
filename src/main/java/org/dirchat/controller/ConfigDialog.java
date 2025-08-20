@@ -21,28 +21,44 @@ public class ConfigDialog extends Stage {
         methodSelector.getItems().addAll(methods);
         methodSelector.setValue(ConfigManager.getIndexingMethod());
 
-        String[] dbTypes = {"sqlite", "file"};
-        ComboBox<String> dbTypeSelector = new ComboBox<>();
-        dbTypeSelector.getItems().addAll(dbTypes);
-        dbTypeSelector.setValue(ConfigManager.getDatabaseType());
+        // Add controls for paragraphsPerChunk
+        Label paragraphsLabel = new Label("Paragraphs per Chunk:");
+        javafx.scene.control.TextField paragraphsField = new javafx.scene.control.TextField(String.valueOf(ConfigManager.getParagraphsPerChunk()));
+
+        // Add controls for paragraphOverlap
+        Label overlapLabel = new Label("Paragraph Overlap:");
+        javafx.scene.control.TextField overlapField = new javafx.scene.control.TextField(String.valueOf(ConfigManager.getOverlap()));
+
+        // Add controls for Ollama base URL
+        Label ollamaUrlLabel = new Label("Ollama Base URL:");
+        javafx.scene.control.TextField ollamaUrlField = new javafx.scene.control.TextField(ConfigManager.getOllamaBaseUrl());
+
+        // Add controls for topK
+        Label topKLabel = new Label("Top K (search results):");
+        javafx.scene.control.TextField topKField = new javafx.scene.control.TextField(String.valueOf(ConfigManager.getTopK()));
 
         Button saveButton = new Button("Save");
         saveButton.setOnAction(event -> {
             try{
                 ConfigManager.setIndexingMethod(methodSelector.getValue());
-                ConfigManager.setDatabaseType(dbTypeSelector.getValue());
+                ConfigManager.setParagraphsPerChunk(Integer.parseInt(paragraphsField.getText()));
+                ConfigManager.setOverlap(Integer.parseInt(overlapField.getText()));
+                ConfigManager.setOllamaBaseUrl(ollamaUrlField.getText());
+                ConfigManager.setTopK(Integer.parseInt(topKField.getText()));
                 close();
             } catch (Exception e) {
                 System.err.println("Failed to save configuration: " + e.getMessage());
             }
         });
 
-        VBox root = new VBox(10,
-            new Label("Indexing Method:"), methodSelector,
-            new Label("Database type:"), dbTypeSelector,
-            saveButton
-        );
-        root.setPadding(new Insets(15));
-        setScene(new Scene(root, 300, 250));
+        VBox vbox = new VBox(10,
+                methodSelector,
+                paragraphsLabel, paragraphsField,
+                overlapLabel, overlapField,
+                ollamaUrlLabel, ollamaUrlField,
+                topKLabel, topKField,
+                saveButton);
+        vbox.setPadding(new Insets(20));
+        setScene(new Scene(vbox, 300, 350));
     }
 }

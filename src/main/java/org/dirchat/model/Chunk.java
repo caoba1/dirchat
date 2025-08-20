@@ -1,29 +1,58 @@
 // Represents a chunk of text with metadata
+//
+// A Chunk is a segment of text from a document, along with metadata about its origin and position.
+//
+// Fields:
+//   - sourceFile: The name of the source file this chunk comes from.
+//   - index: A global, linear identifier for the chunk within the document or dataset.
+//   - chunkIndex: A pointer-based identifier, used for reconstructing the chunk's position within the document (e.g., within a page or section).
+//   - chunkType: The type of chunk (e.g., "content" or "metadata").
+//   - pageNumber: The page number in the source document where this chunk is located.
+//   - cursorPointer: A pointer for locating the chunk within the document.
+//   - documentId: The unique ID of the document this chunk belongs to.
+//   - content: The actual text content of the chunk (used at runtime, not stored in DB).
+//
+// Why both index and chunkIndex?
+//   - index is for global, linear identification (across all chunks in a document).
+//   - chunkIndex is for local, pointer-based identification (within a page, section, or other logical unit).
+//   This dual system allows efficient processing and accurate reconstruction of chunk positions in complex documents.
+//
+// Chunks are used for document processing, embedding, search, and retrieval throughout the application.
 package org.dirchat.model;
 
 public class Chunk {
     private final String sourceFile;
     private final int index;
-    private final String content;
     private final String chunkType; // e.g., "content" or "metadata"
+    // Pointer-based fields
+    private final int chunkIndex;
+    private final int pageNumber;
+    private final int cursorPointer;
+    private final int documentId;
+    // Content is only used at runtime, not stored in DB
+    private String content;
 
-    public Chunk(String sourceFile, int index, String content) {
-        this(sourceFile, index, content, "content");
-    }
-
-    public Chunk(String sourceFile, int index, String content, String chunkType) {
+    public Chunk(String sourceFile, int index, int chunkIndex, int pageNumber, int cursorPointer, int documentId, String chunkType) {
         this.sourceFile = sourceFile;
         this.index = index;
-        this.content = content;
+        this.chunkIndex = chunkIndex;
+        this.pageNumber = pageNumber;
+        this.cursorPointer = cursorPointer;
+        this.documentId = documentId;
         this.chunkType = chunkType;
+        this.content = null;
     }
 
     // Public no-argument constructor for Jackson deserialization
     public Chunk() {
         this.sourceFile = null;
         this.index = 0;
-        this.content = null;
+        this.chunkIndex = 0;
+        this.pageNumber = 0;
+        this.cursorPointer = 0;
+        this.documentId = 0;
         this.chunkType = "content";
+        this.content = null;
     }
 
     public String getSourceFile() {
@@ -34,12 +63,32 @@ public class Chunk {
         return index;
     }
 
-    public String getContent() {
-        return content;
+    public int getChunkIndex() {
+        return chunkIndex;
+    }
+
+    public int getPageNumber() {
+        return pageNumber;
+    }
+
+    public int getCursorPointer() {
+        return cursorPointer;
+    }
+
+    public int getDocumentId() {
+        return documentId;
     }
 
     public String getChunkType() {
         return chunkType;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
     }
 
     @Override
@@ -56,7 +105,7 @@ public class Chunk {
         String[] parts = s.split("::", 3);
         if (parts.length < 2) throw new IllegalArgumentException("Invalid storage string for Chunk: " + s);
         String chunkType = parts.length == 3 ? parts[2] : "content";
-        return new Chunk(parts[0], Integer.parseInt(parts[1]), "", chunkType);
+        return new Chunk(parts[0], Integer.parseInt(parts[1]), 0, 0, 0, 0, chunkType);
     }
 
     @Override

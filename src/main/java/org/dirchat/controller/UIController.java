@@ -2,43 +2,26 @@ package org.dirchat.controller;
 
 // Handles JavaFX UI interactions
 
+import javafx.application.Platform;
 import javafx.scene.Cursor;
 import javafx.scene.layout.BorderPane;
 import org.dirchat.document.DocumentLoader;
-import org.dirchat.document.ParsedDocument;
 import org.dirchat.document.TextChunker;
 import org.dirchat.embedding.EmbeddingService;
 import org.dirchat.embedding.VectorStore;
 import org.dirchat.llm.ChatService;
 import org.dirchat.model.Chunk;
-
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
+import org.dirchat.util.LogMessages;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
-import javafx.util.Duration;
-
 import java.io.File;
-import java.io.RandomAccessFile;
-import java.text.MessageFormat;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.ResourceBundle;
-import java.util.logging.FileHandler;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 public class UIController {
-
     private final DocumentLoader documentLoader = new DocumentLoader();
-    private final TextChunker textChunker = new TextChunker(6); // 6 paragraphs per chunk
-    private final EmbeddingService embeddingService = new EmbeddingService();
-    private VectorStore vectorStore;
-    private ChatService chatService;
-    private String selectedFolder;
     @FXML
     private TextField questionField;
     @FXML
@@ -48,11 +31,7 @@ public class UIController {
     @FXML
     private Label folderLabel;
     @FXML
-    private ListView<String> indexStatusList;
-    @FXML
-    private ProgressBar progressBar;
-    @FXML
-    private ProgressBar folderProgressBar;
+    private ListView<org.dirchat.document.DocumentLoader.LoadedDocument> indexStatusList;
     @FXML
     private ListView<String> chatListView;
     @FXML
@@ -61,20 +40,15 @@ public class UIController {
     private BorderPane mainBorderPane;
     @FXML
     private Button configButton;
+    @FXML
+    private ProgressBar folderProgressBar;
+    @FXML
+    private Label indexLoadedIndicator;
+    private final ResourceBundle messages = ResourceBundle.getBundle("messages");
 
-    private static final Logger logger = Logger.getLogger(UIController.class.getName());
-    static {
-        try {
-            FileHandler fh = new FileHandler("dirchat.log", true);
-            fh.setFormatter(new SimpleFormatter());
-            logger.addHandler(fh);
-            logger.setUseParentHandlers(true);
-        } catch (Exception e) {
-            System.err.println("Failed to set up logger in UIController: " + e.getMessage());
-        }
-    }
-
-    private ResourceBundle messages = ResourceBundle.getBundle("messages");
+    private String selectedFolder;
+    private VectorStore vectorStore;
+    private List<org.dirchat.document.DocumentLoader.LoadedDocument> loadedDocuments;
 
     @FXML
     public void initialize() {
@@ -89,15 +63,38 @@ public class UIController {
         });
         askButton.setOnAction(e -> handleAskQuestion());
         chatListView.getItems().clear();
+
         // Register messageBar setters so backend/services can update the UI message bar
         org.dirchat.embedding.EmbeddingService.setMessageBarSetter(this::setMessageBar); // decoupled callback
         org.dirchat.document.DocumentLoader.setMessageBarSetter(this::setMessageBar);    // decoupled callback
         org.dirchat.llm.ChatService.setMessageBarSetter(this::setMessageBar);            // decoupled callback
+
+        // Set custom cell factory for indexStatusList
+        indexStatusList.setCellFactory(listView -> new ListCell<>() {
+            private final Button openButton = new Button("Open");
+            {
+                openButton.setOnAction(e -> {
+                    org.dirchat.document.DocumentLoader.LoadedDocument doc = getItem();
+                    if (doc != null) {
+                        openDocument(doc);
+                    }
+                });
+            }
+            @Override
+            protected void updateItem(org.dirchat.document.DocumentLoader.LoadedDocument item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    setText(item.fileName + " (ID: " + item.documentId + ")");
+                    setGraphic(openButton);
+                }
+            }
+        });
     }
 
-    private void setMessageBar(String message) {
-        // This method is passed as a callback to backend/services
-        // It updates the message bar in the UI for this controller instance
+    public void setMessageBar(String message) {
         if (messageBar != null) {
             messageBar.setText(message);
         }
@@ -106,17 +103,51 @@ public class UIController {
     private void handleLoadFolder() {
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle(messages.getString("button.loadFolder"));
-        File selectedFolder = chooser.showDialog(new Stage());
+        File selectedFolderFile = chooser.showDialog(new Stage());
+        if (selectedFolderFile != null) {
+            selectedFolder = selectedFolderFile.getAbsolutePath();
+            vectorStore = new VectorStore(selectedFolder);
+            LogMessages.log("Loading folder: " + selectedFolder);
+            setMessageBar("Loading folder: " + selectedFolder);
+            folderLabel.setText(messages.getString("label.selectedFolder") + ": " + selectedFolder);
+            mainBorderPane.setCursor(Cursor.WAIT);
+            folderProgressBar.setProgress(0.0);
+            indexLoadedIndicator.setVisible(false);
+            ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), "Indexing documents...");
+            progressDialog.show();
 
-        if (selectedFolder != null) {
-            String msg = MessageFormat.format(org.dirchat.util.LogMessages.LOADING_FOLDER, selectedFolder.getAbsolutePath());
-            logger.info(msg);
-            setMessageBar(msg);
-            folderLabel.setText(MessageFormat.format(messages.getString("label.selectedFolder"), selectedFolder.getAbsolutePath()));
-            // Centralized: call EmbeddingService.createIndex to handle all indexing logic
-            mainBorderPane.setCursor(Cursor.WAIT); // Set cursor to hourglass
-            embeddingService.createIndex(selectedFolder.getAbsolutePath());
-            mainBorderPane.setCursor(Cursor.DEFAULT); // Reset cursor
+            javafx.concurrent.Task<Void> loadTask = new javafx.concurrent.Task<>() {
+                @Override
+                protected Void call() {
+                    loadedDocuments = documentLoader.loadDocumentsFromFolder(selectedFolder);
+                    Platform.runLater(() -> setIndexStatusListItems(loadedDocuments));
+                    EmbeddingService embeddingService = new EmbeddingService();
+                    TextChunker textChunker = new TextChunker(6);
+                    int totalDocs = loadedDocuments.size();
+                    for (int docIdx = 0; docIdx < totalDocs; docIdx++) {
+                        org.dirchat.document.DocumentLoader.LoadedDocument doc = loadedDocuments.get(docIdx);
+                        final int currentDocIdx = docIdx;
+                        List<Chunk> chunks = textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
+                        embeddingService.embedChunks(chunks, (message, progress) -> {
+                            double docProgress = ((double) currentDocIdx + progress) / totalDocs;
+                            Platform.runLater(() -> {
+                                progressDialog.setMessage("Indexing: " + doc.fileName + "\n" + message);
+                                progressDialog.setProgress(docProgress);
+                                folderProgressBar.setProgress(docProgress);
+                            });
+                        });
+                    }
+                    Platform.runLater(() -> {
+                        progressDialog.close();
+                        mainBorderPane.setCursor(Cursor.DEFAULT);
+                        folderProgressBar.setProgress(1.0);
+                        indexLoadedIndicator.setVisible(true);
+                        setMessageBar("Index loaded successfully!");
+                    });
+                    return null;
+                }
+            };
+            new Thread(loadTask).start();
         }
     }
 
@@ -129,62 +160,46 @@ public class UIController {
 
     private void handleAskQuestion() {
         String question = questionField.getText();
-        if (question == null || question.isBlank())
-        {
+        if (question == null || question.isBlank()) {
             return;
         }
-        // Set cursor to WAIT: Asking question
         mainBorderPane.setCursor(Cursor.WAIT);
-
-        // Log the question and show it in the message bar
-        String msgQ = MessageFormat.format(org.dirchat.util.LogMessages.QUESTION, question);
-        logger.info(msgQ);
-        setMessageBar(msgQ);
-
-        // Clear previous index status
-        // Show top document summaries in indexStatusList
-        // RUN THIS IN A BACKGROUND THREAD
-        List<String> topSummaries;
-        try {
-            topSummaries = chatService.getTopDocumentSummaries(question);
-        } catch (Exception ex) {
-            logger.warning("Failed to get top document summaries: " + ex.getMessage());
-            setMessageBar("Error: " + ex.getMessage());
-            topSummaries = new ArrayList<>();
-        }
-        indexStatusList.getItems().setAll(topSummaries);indexStatusList.getItems().setAll(topSummaries);
-
-        // Clear chatListView before showing new Q&A
+        LogMessages.log("Question: " + question);
+        setMessageBar("Question: " + question);
         chatListView.getItems().clear();
-
-        // Show top answers in chatListView (append question and answer)
-        // RUN THIS IN A BACKGROUND THREAD
         String answer;
         try {
+            ChatService chatService = new ChatService(vectorStore, loadedDocuments, new TextChunker(6), this);
             answer = chatService.answerQuestion(question, ChatService.MAX_SEARCH_RESULTS);
         } catch (Exception ex) {
-            logger.warning("Failed to answer question: " + ex.getMessage());
+            LogMessages.log("Failed to answer question: " + ex.getMessage());
             setMessageBar("Error: " + ex.getMessage());
             answer = messages.getString("error.failedToAnswer");
         }
-
-        String msgA = MessageFormat.format(org.dirchat.util.LogMessages.ANSWER, answer);
-        logger.info(msgA);
-        setMessageBar(msgA);
-
-        chatListView.getItems().add(MessageFormat.format(messages.getString("chat.question"), question));
-        chatListView.getItems().add(MessageFormat.format(messages.getString("chat.answer"), answer));
+        LogMessages.log("Answer: " + answer);
+        setMessageBar("Answer: " + answer);
+        chatListView.getItems().add(messages.getString("chat.question") + ": " + question);
+        chatListView.getItems().add(messages.getString("chat.answer") + ": " + answer);
         questionField.clear();
+        mainBorderPane.setCursor(Cursor.DEFAULT);
+    }
 
-        // Set cursor back to DEFAULT
-        mainBorderPane.setCursor(Cursor.DEFAULT); //TODO: Run this in a background thread to avoid blocking the UI
+    // private void openDocument(int documentId, String fileName) {
+    //     // Implement logic to open the document (e.g., show in viewer, open file, etc.)
+    //     setMessageBar("Opening document: " + fileName);
+    //     // TODO: Add actual document opening logic here
+    // }
+
+    private void openDocument(org.dirchat.document.DocumentLoader.LoadedDocument doc) {
+        setMessageBar("Opening document: " + doc.fileName);
+        // TODO: Add actual document opening logic here, e.g. open file at doc.absolutePath
     }
 
     // Helper to reconstruct chunk content from document and chunk index
-    private String getChunkContent(Chunk chunk, List<ParsedDocument> documents, TextChunker textChunker) {
-        for (ParsedDocument doc : documents) {
-            if (doc.getFileName().equals(chunk.getSourceFile())) {
-                List<Chunk> chunks = textChunker.chunkText(doc.getContent(), doc.getFileName());
+    private String getChunkContent(Chunk chunk, List<DocumentLoader.LoadedDocument> documents, TextChunker textChunker) {
+        for (DocumentLoader.LoadedDocument doc : documents) {
+            if (doc.documentId == chunk.getDocumentId()) {
+                List<Chunk> chunks = textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
                 for (Chunk c : chunks) {
                     if (c.getIndex() == chunk.getIndex()) {
                         return c.getContent();
@@ -193,5 +208,11 @@ public class UIController {
             }
         }
         return "";
+    }
+
+    public void setIndexStatusListItems(List<org.dirchat.document.DocumentLoader.LoadedDocument> docs) {
+        if (indexStatusList != null) {
+            indexStatusList.getItems().setAll(docs);
+        }
     }
 }
