@@ -2,7 +2,9 @@ package org.dirchat.embedding;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.dirchat.document.DocumentLoader;
 import org.dirchat.model.Chunk;
+import org.dirchat.util.LogMessages;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,8 +15,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class VectorStore {
-
-    private final Map<Chunk, List<Double>> store = new HashMap<>();
 
     // SQLite database file name
     private String sqliteDbPath;
@@ -32,25 +32,60 @@ public class VectorStore {
         this.sqliteDbPath = dirPath.resolve("vectorstore.db").toString();
     }
 
-    // Initialize SQLite DB and create table if not exists
+    // Initialize SQLite DB and create tables if not exists
     public void initSqliteDb() throws SQLException {
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
-            String sql = "CREATE TABLE IF NOT EXISTS vectors ("
-                    + "chunk_id TEXT PRIMARY KEY,"
-                    + "vector TEXT NOT NULL,"
-                    + "metadata TEXT NOT NULL"
+            // TABLE_INDEX: stores global index properties
+            String indexSql = "CREATE TABLE IF NOT EXISTS table_index ("
+                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + "property_key TEXT UNIQUE,"
+                    + "property_value TEXT NOT NULL"
                     + ")";
+            try (PreparedStatement pstmt = conn.prepareStatement(indexSql)) {
+                pstmt.executeUpdate();
+            }
+
+            // TABLE_DOCUMENT: stores document metadata
+            String documentSql = "CREATE TABLE IF NOT EXISTS table_document ("
+                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + "filename TEXT UNIQUE,"
+                    + "location TEXT,"
+                    + "number_pages INTEGER,"
+                    + "filetype TEXT,"
+                    + "toc TEXT,"
+                    + "metadata TEXT"
+                    + ")";
+            try (PreparedStatement pstmt = conn.prepareStatement(documentSql)) {
+                pstmt.executeUpdate();
+            }
+
+            // TABLE_CHUNK: stores chunk embeddings and pointers
+            String chunkSql = "CREATE TABLE IF NOT EXISTS table_chunk ("
+                    + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + "document_id INTEGER,"
+                    + "chunk_index INTEGER,"
+                    + "page_number INTEGER,"
+                    + "cursor_pointer INTEGER,"
+                    + "embedding_vector TEXT NOT NULL,"
+                    + "metadata TEXT,"
+                    + "FOREIGN KEY(document_id) REFERENCES table_document(id)"
+                    + ")";
+            try (PreparedStatement pstmt = conn.prepareStatement(chunkSql)) {
+                pstmt.executeUpdate();
+            }
+
+            // TABLE_SETTINGS: stores embedding method and other global settings
             String settingsSql = "CREATE TABLE IF NOT EXISTS settings ("
                     + "key TEXT PRIMARY KEY,"
                     + "value TEXT NOT NULL"
                     + ")";
-            try (Statement stmt = conn.createStatement()) {
-                stmt.execute(sql);
-                stmt.execute(settingsSql);
+            try (PreparedStatement pstmt = conn.prepareStatement(settingsSql)) {
+                pstmt.executeUpdate();
             }
         }
     }
 
+    // TODO: Throw a runtime exception instead???
     // Set indexing method in settings table
     public void setIndexingMethod(String method) throws SQLException {
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
@@ -79,12 +114,12 @@ public class VectorStore {
         return null;
     }
 
-    public void addAll(Map<Chunk, List<Double>> embeddings) {
-        store.putAll(embeddings);
-    }
-
-    public List<Chunk> search(List<Double> queryVector, int topK) {
-        return store.entrySet().stream()
+    /**
+     * Search for topK similar chunks within a single document (SQLite-backed)
+     */
+    public List<Chunk> search(String docFileName, List<Double> queryVector, int topK) throws SQLException, IOException {
+        Map<Chunk, List<Double>> chunkMap = loadDocumentEmbeddingsFromSqlite(docFileName);
+        return chunkMap.entrySet().stream()
                 .map(entry -> new ScoredChunk(entry.getKey(), cosineSimilarity(queryVector, entry.getValue())))
                 .sorted(Comparator.comparingDouble(ScoredChunk::getScore).reversed())
                 .limit(topK)
@@ -92,9 +127,37 @@ public class VectorStore {
                 .collect(Collectors.toList());
     }
 
-    public List<ScoredChunk> searchWithScores(List<Double> queryVector, int topK) {
-        return store.entrySet().stream()
+    /**
+     * Search for topK similar chunks with scores within a single document (SQLite-backed)
+     */
+    public List<ScoredChunk> searchWithScores(String docFileName, List<Double> queryVector, int topK) throws SQLException, IOException {
+        Map<Chunk, List<Double>> chunkMap = loadDocumentEmbeddingsFromSqlite(docFileName);
+        return chunkMap.entrySet().stream()
                 .map(entry -> new ScoredChunk(entry.getKey(), cosineSimilarity(queryVector, entry.getValue())))
+                .sorted(Comparator.comparingDouble(ScoredChunk::getScore).reversed())
+                .limit(topK)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Compound search: search for topK similar chunks across ALL documents (SQLite-backed, loads chunks in batches)
+     */
+    public List<ScoredChunk> compoundSearchWithScores(List<Double> queryVector, int topK) throws SQLException, IOException {
+        List<ScoredChunk> allScoredChunks = new ArrayList<>();
+        String sql = "SELECT chunk_id, vector, metadata FROM vectors";
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            try (PreparedStatement stmt = conn.prepareStatement(sql);
+                 ResultSet rs = stmt.executeQuery()) {
+                ObjectMapper mapper = new ObjectMapper();
+                while (rs.next()) {
+                    Chunk chunk = mapper.readValue(rs.getString("metadata"), Chunk.class);
+                    List<Double> vector = mapper.readValue(rs.getString("vector"), new TypeReference<List<Double>>() {});
+                    double score = cosineSimilarity(queryVector, vector);
+                    allScoredChunks.add(new ScoredChunk(chunk, score));
+                }
+            }
+        }
+        return allScoredChunks.stream()
                 .sorted(Comparator.comparingDouble(ScoredChunk::getScore).reversed())
                 .limit(topK)
                 .collect(Collectors.toList());
@@ -105,7 +168,7 @@ public class VectorStore {
         for (int i = 0; i < a.size(); i++) {
             dot += a.get(i) * b.get(i);
             normA += a.get(i) * a.get(i);
-            normB += b.get(i) * b.get(i);
+            normB += a.get(i) * a.get(i);
         }
         return dot / (Math.sqrt(normA) * Math.sqrt(normB));
     }
@@ -124,6 +187,14 @@ public class VectorStore {
 
     // Save embeddings and metadata to SQLite
     public void saveToSqlite(Map<Chunk, List<Double>> embeddings) throws SQLException, IOException {
+        // Load embedding method from config.properties
+        Properties props = new Properties();
+        try (java.io.InputStream input = getClass().getClassLoader().getResourceAsStream("config.properties")) {
+            if (input != null) {
+                props.load(input);
+            }
+        }
+        String embeddingMethod = props.getProperty("indexing.method", "unknown");
         // Check if 'vectors' table exists, and initialize DB if missing
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
             String checkTableSql = "SELECT name FROM sqlite_master WHERE type='table' AND name='vectors'";
@@ -131,6 +202,7 @@ public class VectorStore {
                 if (!rs.next()) {
                     // Table does not exist, initialize DB
                     initSqliteDb();
+                    LogMessages.logger.info("Call to saveToSqlite() failes. I have initialized the SQLite database and created the 'vectors' table.");
                 }
             }
         }
@@ -142,7 +214,7 @@ public class VectorStore {
                 for (Map.Entry<Chunk, List<Double>> entry : embeddings.entrySet()) {
                     pstmt.setString(1, entry.getKey().toStorageString());
                     pstmt.setString(2, mapper.writeValueAsString(entry.getValue()));
-                    pstmt.setString(3, mapper.writeValueAsString(entry.getKey())); // store metadata as JSON
+                    pstmt.setString(3, mapper.writeValueAsString(entry.getKey())); // store only chunk metadata
                     pstmt.addBatch();
                 }
                 pstmt.executeBatch();
@@ -168,17 +240,6 @@ public class VectorStore {
         return chunkMap;
     }
 
-    // Load all vectors from SQLite into memory
-    public void loadAllFromSqliteToMemory() throws SQLException, IOException {
-        Map<Chunk, List<Double>> loaded = loadFromSqlite();
-        store.clear();
-        store.putAll(loaded);
-    }
-
-    // Save all vectors from memory to SQLite
-    public void saveAllFromMemoryToSqlite() throws SQLException, IOException {
-        saveToSqlite(store);
-    }
 
     // Insert or update a vector and metadata
     public void insertOrUpdateVector(Chunk chunk, List<Double> vector) throws SQLException, IOException {
@@ -244,15 +305,12 @@ public class VectorStore {
     // Returns the embedding method used for the current SQLite database
     public String getSqliteEmbeddingMethod() {
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
-            String sql = "SELECT metadata FROM vectors LIMIT 1";
-            try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
-                if (rs.next()) {
-                    String metadataJson = rs.getString("metadata");
-                    // Assume metadata contains embedding method info (extend Chunk if needed)
-                    if (metadataJson.contains("sbert")) {
-                        return "sbert";
-                    } else if (metadataJson.contains("ollama")) {
-                        return "ollama";
+            String sql = "SELECT value FROM settings WHERE key = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, "indexing_method");
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getString("value");
                     }
                 }
             }
@@ -264,25 +322,19 @@ public class VectorStore {
 
     // Checks if the index exists for a given docFileName, based on the configured database type
     public boolean indexExists(String docFileName) {
-        String dbType = org.dirchat.util.ConfigManager.getDatabaseType();
-        if (dbType.equalsIgnoreCase("file")) {
-            String indexPath = this.sqliteDbPath.replace("vectorstore.db", "vectors/" + docFileName + ".index");
-            return new java.io.File(indexPath).exists();
-        } else {
-            // For SQLite, check if any chunk for this docFileName exists in the DB
-            try (java.sql.Connection conn = java.sql.DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
-                String sql = "SELECT 1 FROM vectors WHERE metadata LIKE ? LIMIT 1";
-                try (java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                    pstmt.setString(1, "%\"sourceFile\":\"" + docFileName + "\"%");
-                    try (java.sql.ResultSet rs = pstmt.executeQuery()) {
-                        return rs.next();
-                    }
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            String sql = "SELECT 1 FROM vectors WHERE metadata LIKE ? LIMIT 1";
+            try (java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, "%\"sourceFile\":\"" + docFileName + "\"%");
+                try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+                    return rs.next();
                 }
-            } catch (Exception e) {
-                return false;
             }
+        } catch (Exception e) {
+            return false;
         }
     }
+
 
     // Returns the file path for a document's index (file-based)
     public String getIndexPath(String docFileName) {
@@ -311,6 +363,251 @@ public class VectorStore {
                 Map.Entry::getValue
             ));
         mapper.writeValue(new File(indexPath), stringKeyMap);
+    }
+
+    // Save embeddings for a document (file-based)
+    public void saveDocumentEmbeddings(String docFileName, Map<Chunk, List<Double>> embeddings) throws IOException {
+        String indexPath = getIndexPath(docFileName);
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, List<Double>> stringKeyMap = embeddings.entrySet().stream()
+            .collect(Collectors.toMap(
+                e -> e.getKey().toStorageString(),
+                Map.Entry::getValue
+            ));
+        mapper.writeValue(new File(indexPath), stringKeyMap);
+    }
+
+    // Load embeddings for a document (file-based)
+    public Map<Chunk, List<Double>> loadDocumentEmbeddings(String docFileName) throws IOException {
+        String indexPath = getIndexPath(docFileName);
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, List<Double>> stringKeyMap = mapper.readValue(new File(indexPath), new TypeReference<Map<String, List<Double>>>() {});
+        Map<Chunk, List<Double>> chunkMap = new HashMap<>();
+        for (Map.Entry<String, List<Double>> entry : stringKeyMap.entrySet()) {
+            chunkMap.put(Chunk.fromStorageString(entry.getKey()), entry.getValue());
+        }
+        return chunkMap;
+    }
+
+    // Save embeddings for a document (SQLite)
+    public void saveDocumentEmbeddingsToSqlite(String docFileName, Map<Chunk, List<Double>> embeddings) throws SQLException, IOException {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            String sql = "INSERT OR REPLACE INTO vectors (chunk_id, vector, metadata) VALUES (?, ?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                ObjectMapper mapper = new ObjectMapper();
+                for (Map.Entry<Chunk, List<Double>> entry : embeddings.entrySet()) {
+                    pstmt.setString(1, entry.getKey().toStorageString());
+                    pstmt.setString(2, mapper.writeValueAsString(entry.getValue()));
+                    pstmt.setString(3, mapper.writeValueAsString(entry.getKey())); // store only chunk metadata
+                    pstmt.addBatch();
+                }
+                pstmt.executeBatch();
+            }
+        }
+    }
+
+    // Load embeddings for a document (SQLite)
+    public Map<Chunk, List<Double>> loadDocumentEmbeddingsFromSqlite(String docFileName) throws SQLException, IOException {
+        Map<Chunk, List<Double>> chunkMap = new HashMap<>();
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            String sql = "SELECT chunk_id, vector, metadata FROM vectors WHERE metadata LIKE ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, "%\"sourceFile\":\"" + docFileName + "\"%");
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    ObjectMapper mapper = new ObjectMapper();
+                    while (rs.next()) {
+                        Chunk chunk = mapper.readValue(rs.getString("metadata"), Chunk.class);
+                        List<Double> vector = mapper.readValue(rs.getString("vector"), new TypeReference<List<Double>>() {});
+                        chunkMap.put(chunk, vector);
+                    }
+                }
+            }
+        }
+        return chunkMap;
+    }
+
+    // Check if index exists for a document (file-based or SQLite)
+    public boolean documentIndexExists(String docFileName) {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            String sql = "SELECT 1 FROM vectors WHERE metadata LIKE ? LIMIT 1";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, "%\"sourceFile\":\"" + docFileName + "\"%");
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    return rs.next();
+                }
+            }
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Indexes all documents in a folder: loads, chunks, embeds, and saves vectors for each document.
+     * Handles both file-based and SQLite storage.
+     */
+    public void createIndex(String folderPath, EmbeddingService embeddingService) {
+        try {
+            embeddingService.setMessageBar("Starting indexing for folder: " + folderPath);
+            org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
+            List<DocumentLoader.LoadedDocument> documents = loader.loadDocumentsFromFolder(folderPath);
+            int totalDocs = documents.size();
+            for (int i = 0; i < totalDocs; i++) {
+                DocumentLoader.LoadedDocument doc = documents.get(i);
+                double percent = (((double) (i + 1)) / totalDocs) * 100.0;
+                String bar = "[" + "=".repeat((int) (percent / 2)) + " ".repeat(50 - (int) (percent / 2)) + "]";
+                String percentString = String.format("%.2f", percent);
+                embeddingService.setMessageBar(bar + " " + percentString + "% for document " + (i + 1) + "/" + totalDocs + ": " + doc.fileName);
+                List<org.dirchat.model.Chunk> docChunks = embeddingService.textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
+                Map<org.dirchat.model.Chunk, List<Double>> embeddings = embeddingService.embedChunks(docChunks);
+                saveDocumentEmbeddingsToSqlite(doc.fileName, embeddings);
+            }
+            embeddingService.setMessageBar("Indexing complete for folder: " + folderPath);
+        } catch (Exception e) {
+            embeddingService.setMessageBar("Indexing failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Extract and save document metadata using Apache Tika before saving embeddings
+     */
+    private void extractAndSaveDocumentMetadata(DocumentLoader.LoadedDocument doc) {
+        org.apache.tika.Tika tika = new org.apache.tika.Tika();
+        org.apache.tika.metadata.Metadata tikaMetadata = new org.apache.tika.metadata.Metadata();
+        int numberPages = 0;
+        String filetype = "unknown";
+        String toc = "";
+        String metadataJson = "";
+        try {
+            tika.parse(new java.io.ByteArrayInputStream(doc.content.getBytes()), tikaMetadata);
+            filetype = tikaMetadata.get(org.apache.tika.metadata.Metadata.CONTENT_TYPE);
+            String pagesStr = tikaMetadata.get("xmpTPg:NPages");
+            if (pagesStr != null) {
+                numberPages = Integer.parseInt(pagesStr);
+            }
+            toc = tikaMetadata.get("toc");
+            metadataJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(tikaMetadata);
+        } catch (Exception e) {
+            LogMessages.logger.warning("Failed to extract metadata for " + doc.fileName + ": " + e.getMessage());
+        }
+        try {
+            upsertDocumentMetadata(doc.fileName, toc, numberPages, filetype, metadataJson);
+        } catch (Exception e) {
+            LogMessages.logger.warning("Failed to upsert document metadata for " + doc.fileName + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Insert or update document metadata in DOCUMENT table
+     */
+    public void upsertDocumentMetadata(String filename, String toc, int numberPages, String filetype, String metadataJson) throws SQLException {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            String sql = "INSERT OR REPLACE INTO document (filename, toc, number_pages, filetype, metadata) VALUES (?, ?, ?, ?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, filename);
+                pstmt.setString(2, toc);
+                pstmt.setInt(3, numberPages);
+                pstmt.setString(4, filetype);
+                pstmt.setString(5, metadataJson);
+                pstmt.executeUpdate();
+            }
+        }
+    }
+
+    // Save index properties to TABLE_INDEX
+    public void saveIndexProperties(Map<String, String> properties) throws SQLException {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            String sql = "INSERT OR REPLACE INTO table_index (property_key, property_value) VALUES (?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                for (Map.Entry<String, String> entry : properties.entrySet()) {
+                    pstmt.setString(1, entry.getKey());
+                    pstmt.setString(2, entry.getValue());
+                    pstmt.addBatch();
+                }
+                pstmt.executeBatch();
+            }
+        }
+    }
+
+    // Save document metadata to TABLE_DOCUMENT, returns document_id
+    public int saveDocumentMetadata(String filename, String location, int numberPages, String filetype, String toc, String metadataJson) throws SQLException {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            String sql = "INSERT OR REPLACE INTO table_document (filename, location, number_pages, filetype, toc, metadata) VALUES (?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                pstmt.setString(1, filename);
+                pstmt.setString(2, location);
+                pstmt.setInt(3, numberPages);
+                pstmt.setString(4, filetype);
+                pstmt.setString(5, toc);
+                pstmt.setString(6, metadataJson);
+                pstmt.executeUpdate();
+                try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
+                }
+            }
+            // If document already exists, fetch its id
+            String selectSql = "SELECT id FROM table_document WHERE filename = ?";
+            try (PreparedStatement pstmt = conn.prepareStatement(selectSql)) {
+                pstmt.setString(1, filename);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("id");
+                    }
+                }
+            }
+        }
+        throw new SQLException("Failed to save or retrieve document id for " + filename);
+    }
+
+    // Save chunk embeddings to TABLE_CHUNK (pointer-based)
+    public void saveChunkEmbeddings(int documentId, List<Chunk> chunks, Map<Chunk, List<Double>> embeddings) throws SQLException, IOException {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            String sql = "INSERT INTO table_chunk (document_id, chunk_index, page_number, cursor_pointer, embedding_vector, metadata) VALUES (?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                ObjectMapper mapper = new ObjectMapper();
+                for (Chunk chunk : chunks) {
+                    List<Double> vector = embeddings.get(chunk);
+                    pstmt.setInt(1, chunk.getDocumentId());
+                    pstmt.setInt(2, chunk.getChunkIndex());
+                    pstmt.setInt(3, chunk.getPageNumber());
+                    pstmt.setInt(4, chunk.getCursorPointer());
+                    pstmt.setString(5, mapper.writeValueAsString(vector));
+                    pstmt.setString(6, mapper.writeValueAsString(chunk)); // metadata as JSON
+                    pstmt.addBatch();
+                }
+                pstmt.executeBatch();
+            }
+        }
+    }
+
+    // Retrieve chunk embeddings and pointers from TABLE_CHUNK
+    public List<ScoredChunk> getChunkEmbeddingsWithScores(List<Double> queryVector, int topK) throws SQLException, IOException {
+        List<ScoredChunk> allScoredChunks = new ArrayList<>();
+        String sql = "SELECT document_id, chunk_index, page_number, cursor_pointer, embedding_vector, metadata FROM table_chunk";
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            try (PreparedStatement stmt = conn.prepareStatement(sql);
+                 ResultSet rs = stmt.executeQuery()) {
+                ObjectMapper mapper = new ObjectMapper();
+                while (rs.next()) {
+                    int documentId = rs.getInt("document_id");
+                    int chunkIndex = rs.getInt("chunk_index");
+                    int pageNumber = rs.getInt("page_number");
+                    int cursorPointer = rs.getInt("cursor_pointer");
+                    String metadataJson = rs.getString("metadata");
+                    Chunk chunk = mapper.readValue(metadataJson, Chunk.class);
+                    List<Double> vector = mapper.readValue(rs.getString("embedding_vector"), new TypeReference<List<Double>>() {});
+                    double score = cosineSimilarity(queryVector, vector);
+                    // Set pointer fields
+                    chunk.setContent(null); // content will be reconstructed at runtime
+                    allScoredChunks.add(new ScoredChunk(chunk, score));
+                }
+            }
+        }
+        return allScoredChunks.stream()
+                .sorted(Comparator.comparingDouble(ScoredChunk::getScore).reversed())
+                .limit(topK)
+                .collect(Collectors.toList());
     }
 
     public static class ScoredChunk {
