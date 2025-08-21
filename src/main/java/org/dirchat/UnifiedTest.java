@@ -73,6 +73,7 @@ public class UnifiedTest {
             e.printStackTrace();
         }
 
+
         // Step 5: Ask a question
         if (store != null) {
             ChatService chatService = new ChatService(store, documents, chunker, null);
