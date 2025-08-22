@@ -13,6 +13,8 @@ public class ProgressDialog {
     private final Stage dialogStage;
     private final Label messageLabel;
     private final ProgressBar progressBar;
+    private final Label fileLabel;
+    private final ProgressBar fileProgressBar;
 
     public ProgressDialog(Stage owner, String initialMessage) {
         dialogStage = new Stage();
@@ -21,10 +23,13 @@ public class ProgressDialog {
         dialogStage.setTitle("Progress");
 
         messageLabel = new Label(initialMessage);
+        fileLabel = new Label("");
         progressBar = new ProgressBar(0);
         progressBar.setPrefWidth(300);
+        fileProgressBar = new ProgressBar(0);
+        fileProgressBar.setPrefWidth(300);
 
-        VBox vbox = new VBox(10, messageLabel, progressBar);
+        VBox vbox = new VBox(10, messageLabel, fileLabel, progressBar, fileProgressBar);
         vbox.setPadding(new Insets(20));
         Scene scene = new Scene(vbox);
         dialogStage.setScene(scene);
@@ -45,5 +50,12 @@ public class ProgressDialog {
     public void setProgress(double progress) {
         Platform.runLater(() -> progressBar.setProgress(progress));
     }
-}
 
+    public void setFileName(String fileName) {
+        Platform.runLater(() -> fileLabel.setText(fileName));
+    }
+
+    public void setFileProgress(double progress) {
+        Platform.runLater(() -> fileProgressBar.setProgress(progress));
+    }
+}

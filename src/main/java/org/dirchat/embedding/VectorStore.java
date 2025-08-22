@@ -528,12 +528,12 @@ public class VectorStore {
             toc = tikaMetadata.get("toc");
             metadataJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(tikaMetadata);
         } catch (Exception e) {
-            LogMessages.logger.warning("Failed to extract metadata for " + doc.fileName + ": " + e.getMessage());
+            LogMessages.logWarning("Failed to extract metadata for " + doc.fileName + ": " + e.getMessage());
         }
         try {
             upsertDocumentMetadata(doc.fileName, toc, numberPages, filetype, metadataJson);
         } catch (Exception e) {
-            LogMessages.logger.warning("Failed to upsert document metadata for " + doc.fileName + ": " + e.getMessage());
+            LogMessages.logWarning("Failed to upsert document metadata for " + doc.fileName + ": " + e.getMessage());
         }
     }
 

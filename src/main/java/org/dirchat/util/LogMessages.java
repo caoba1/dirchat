@@ -5,7 +5,7 @@ import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
 
 public class LogMessages {
-    public static final Logger logger = Logger.getLogger(LogMessages.class.getName());
+    private static final Logger logger = Logger.getLogger(LogMessages.class.getName());
     private static org.dirchat.controller.UIController uiController = null;
 
     static {
@@ -46,7 +46,6 @@ public class LogMessages {
     public static void logWarning(String message) {
         logWarning(message, false);
     }
-
     public static void logWarning(String message, boolean bypassUI) {
         logger.warning(message);
         if (!bypassUI && uiController != null) {

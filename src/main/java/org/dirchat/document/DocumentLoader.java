@@ -21,13 +21,6 @@ public class DocumentLoader {
     // Allows the UI to register a callback for message bar updates.
     // This decouples backend logic from the UI, so DocumentLoader can notify the user without knowing about UI classes.
     private static java.util.function.Consumer<String> messageBarSetter;
-    public static void setMessageBarSetter(java.util.function.Consumer<String> setter) {
-        messageBarSetter = setter;
-    }
-    // Use this to send a message to the UI message bar (if registered)
-    private void setMessageBar(String msg) {
-        if (messageBarSetter != null) messageBarSetter.accept(msg);
-    }
 
     public static class LoadedDocument {
         public final int documentId;
@@ -51,8 +44,7 @@ public class DocumentLoader {
         if (!folder.exists() || !folder.isDirectory()) {
             String errMsg = "Invalid folder path: " + folderPath;
             System.err.println(errMsg);
-            LogMessages.logger.warning(errMsg);
-            setMessageBar(errMsg);
+            LogMessages.logWarning(errMsg);
             return documents;
         }
 
@@ -65,12 +57,10 @@ public class DocumentLoader {
                     documents.add(new LoadedDocument(documentId, file.getName(), content, metadata, file.getAbsolutePath()));
                     String msg = "Loaded document: " + file.getName();
                     LogMessages.log(msg);
-                    setMessageBar(msg);
                 } catch (Exception e) {
                     String errMsg = "Failed to parse: " + file.getName();
                     System.err.println(errMsg);
                     LogMessages.logWarning(errMsg + ", reason: " + e.getMessage());
-                    setMessageBar(errMsg);
                     e.printStackTrace();
                 }
             }

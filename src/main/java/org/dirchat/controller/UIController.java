@@ -4,6 +4,9 @@ package org.dirchat.controller;
 
 import javafx.application.Platform;
 import javafx.scene.Cursor;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import org.dirchat.document.DocumentLoader;
 import org.dirchat.document.TextChunker;
@@ -16,7 +19,10 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
+
+import java.awt.*;
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.ResourceBundle;
 
@@ -41,8 +47,6 @@ public class UIController {
     @FXML
     private Button configButton;
     @FXML
-    private ProgressBar folderProgressBar;
-    @FXML
     private Label indexLoadedIndicator;
     private final ResourceBundle messages = ResourceBundle.getBundle("messages");
 
@@ -64,10 +68,6 @@ public class UIController {
         askButton.setOnAction(e -> handleAskQuestion());
         chatListView.getItems().clear();
 
-        // Register messageBar setters so backend/services can update the UI message bar
-        org.dirchat.embedding.EmbeddingService.setMessageBarSetter(this::setMessageBar); // decoupled callback
-        org.dirchat.document.DocumentLoader.setMessageBarSetter(this::setMessageBar);    // decoupled callback
-        org.dirchat.llm.ChatService.setMessageBarSetter(this::setMessageBar);            // decoupled callback
 
         // Set custom cell factory for indexStatusList
         indexStatusList.setCellFactory(listView -> new ListCell<>() {
@@ -94,6 +94,7 @@ public class UIController {
         });
     }
 
+    // Called from LogMessages to update the message bar
     public void setMessageBar(String message) {
         if (messageBar != null) {
             messageBar.setText(message);
@@ -111,7 +112,6 @@ public class UIController {
             setMessageBar("Loading folder: " + selectedFolder);
             folderLabel.setText(messages.getString("label.selectedFolder") + ": " + selectedFolder);
             mainBorderPane.setCursor(Cursor.WAIT);
-            folderProgressBar.setProgress(0.0);
             indexLoadedIndicator.setVisible(false);
             ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), "Indexing documents...");
             progressDialog.show();
@@ -129,33 +129,29 @@ public class UIController {
                         final int currentDocIdx = docIdx;
                         List<Chunk> chunks = textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
                         embeddingService.embedChunks(chunks, (message, progress) -> {
-                            double docProgress = ((double) currentDocIdx + progress) / totalDocs;
+                            double docProgress = progress; // Per-file progress only
+                            double overallProgress = ((double) currentDocIdx + progress) / totalDocs;
                             Platform.runLater(() -> {
-                                progressDialog.setMessage("Indexing: " + doc.fileName + "\n" + message);
-                                progressDialog.setProgress(docProgress);
-                                folderProgressBar.setProgress(docProgress);
+                                progressDialog.setMessage(message);
+                                progressDialog.setFileName("Indexing: " + doc.fileName);
+                                progressDialog.setFileProgress(docProgress);
+                                progressDialog.setProgress(overallProgress); // Only overall progress in main bar
                             });
                         });
                     }
                     Platform.runLater(() -> {
                         progressDialog.close();
                         mainBorderPane.setCursor(Cursor.DEFAULT);
-                        folderProgressBar.setProgress(1.0);
                         indexLoadedIndicator.setVisible(true);
                         setMessageBar("Index loaded successfully!");
                     });
                     return null;
                 }
             };
+            // Run the load task in a separate thread... TODO: handle button disable/enable
+            // TODO: handle exceptions and errors
             new Thread(loadTask).start();
         }
-    }
-
-    public void onFolderSelected(String folderPath) {
-        this.selectedFolder = folderPath;
-        this.vectorStore = new VectorStore(folderPath);
-        // Optionally, re-initialize chatService or other components here
-        // ...other logic for folder selection...
     }
 
     private void handleAskQuestion() {
@@ -173,41 +169,28 @@ public class UIController {
             answer = chatService.answerQuestion(question, ChatService.MAX_SEARCH_RESULTS);
         } catch (Exception ex) {
             LogMessages.log("Failed to answer question: " + ex.getMessage());
-            setMessageBar("Error: " + ex.getMessage());
             answer = messages.getString("error.failedToAnswer");
         }
-        LogMessages.log("Answer: " + answer);
-        setMessageBar("Answer: " + answer);
+        LogMessages.log("Answer: " + answer); //Also setsMessageBar
         chatListView.getItems().add(messages.getString("chat.question") + ": " + question);
         chatListView.getItems().add(messages.getString("chat.answer") + ": " + answer);
         questionField.clear();
         mainBorderPane.setCursor(Cursor.DEFAULT);
     }
 
-    // private void openDocument(int documentId, String fileName) {
-    //     // Implement logic to open the document (e.g., show in viewer, open file, etc.)
-    //     setMessageBar("Opening document: " + fileName);
-    //     // TODO: Add actual document opening logic here
-    // }
-
     private void openDocument(org.dirchat.document.DocumentLoader.LoadedDocument doc) {
         setMessageBar("Opening document: " + doc.fileName);
         // TODO: Add actual document opening logic here, e.g. open file at doc.absolutePath
-    }
-
-    // Helper to reconstruct chunk content from document and chunk index
-    private String getChunkContent(Chunk chunk, List<DocumentLoader.LoadedDocument> documents, TextChunker textChunker) {
-        for (DocumentLoader.LoadedDocument doc : documents) {
-            if (doc.documentId == chunk.getDocumentId()) {
-                List<Chunk> chunks = textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
-                for (Chunk c : chunks) {
-                    if (c.getIndex() == chunk.getIndex()) {
-                        return c.getContent();
-                    }
-                }
+        if (Desktop.isDesktopSupported())
+        {
+            try{
+                Desktop.getDesktop().open(new File(doc.absolutePath));
+                LogMessages.log("Opened document: " + doc.fileName);
+            }catch(Exception ex){
+                LogMessages.log("Failed to open document: " + ex.getMessage());
             }
         }
-        return "";
+        setMessageBar("");
     }
 
     public void setIndexStatusListItems(List<org.dirchat.document.DocumentLoader.LoadedDocument> docs) {

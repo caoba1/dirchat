@@ -29,11 +29,9 @@ public class EmbeddingService {
 
     public static final String BASE_URL = ConfigManager.getOllamaBaseUrl();
     public static final int MAX_CHUNKS = 10;
-    public static final String START_PROMPT = "You analyse questions and search for results in the context provided.";
-    private static final String PROMPT_FILE = "prompt.txt";
+    // TODO
     private static final ExecutorService SERVICE_EXECUTOR = Executors.newFixedThreadPool(
             Math.max(2, Runtime.getRuntime().availableProcessors()));
-    private static String startPromptCache = null;
     private final String baseUrl;
     private EmbeddingModel embeddingModel;
     public final TextChunker textChunker;
@@ -69,26 +67,7 @@ public class EmbeddingService {
         this.textChunker = new TextChunker(paragraphsPerChunk, overlap);
     }
 
-    // Optionally, provide a getter for the start prompt
-    // TODO Move to chatService
-    public static String getStartPrompt() {
-        if (startPromptCache != null) {
-            return startPromptCache;
-        }
-        try {
-            // Read prompt.txt from resources
-            ClassLoader classLoader = EmbeddingService.class.getClassLoader();
-            try (java.io.InputStream is = classLoader.getResourceAsStream(PROMPT_FILE)) {
-                if (is == null) {
-                    throw new RuntimeException("prompt.txt not found in resources");
-                }
-                startPromptCache = new String(is.readAllBytes()).trim();
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read prompt file from resources", e);
-        }
-        return startPromptCache;
-    }
+
 
     /**
      * Generates embeddings for a list of chunks. No document/file handling.

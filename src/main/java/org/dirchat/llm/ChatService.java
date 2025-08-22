@@ -42,7 +42,7 @@ public class ChatService {
         this.textChunker = textChunker;
         this.uiController = uiController;
 
-        String indexingMethod = "tinyllama";
+        String indexingMethod = "tinyllama"; // For the embedding model, default to tinyllama
         try {
             String method = vectorStore.getIndexingMethod();
             if (method != null && !method.isEmpty()) {
@@ -79,15 +79,6 @@ public class ChatService {
                     .timeout(Duration.ofMinutes(15))  // or even longer
                     .build();
     }
-
-    public static void setMessageBarSetter(java.util.function.Consumer<String> setter) {
-        messageBarSetter = setter;
-    }
-
-    private void setMessageBar(String msg) {
-        if (messageBarSetter != null) messageBarSetter.accept(msg);
-    }
-
     // RAG
     public List<ScoredChunk> getTopDocumentChunks(String question) {
         float[] vector = embeddingModel.embed(question).content().vector();
@@ -124,6 +115,29 @@ public class ChatService {
         return topChunks;
     }
 
+    // Optionally, provide a getter for the start prompt
+    // TODO Move to chatService
+    private static final String PROMPT_FILE = "prompt.txt";
+    public static String getStartPrompt() {
+        String startPromptCache = null;
+        if (startPromptCache != null) {
+            return startPromptCache;
+        }
+        try {
+            // Read prompt.txt from resources
+            ClassLoader classLoader = EmbeddingService.class.getClassLoader();
+            try (java.io.InputStream is = classLoader.getResourceAsStream(PROMPT_FILE)) {
+                if (is == null) {
+                    throw new RuntimeException("prompt.txt not found in resources");
+                }
+                startPromptCache = new String(is.readAllBytes()).trim();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read prompt file from resources", e);
+        }
+        return startPromptCache;
+    }
+
     public List<String> getTopDocumentSummaries(String question) {
         List<ScoredChunk> topChunks = getTopDocumentChunks(question);
         // Group by document and calculate average score
@@ -140,6 +154,8 @@ public class ChatService {
             double avgScore = chunks.stream().mapToDouble(ScoredChunk::getScore).average().orElse(0.0);
             summaries.add(doc + " (avg score: " + String.format("%.3f", avgScore) + ")");
         }
+        LogMessages.log( "Top document summaries: \n"
+                + String.join("\n",summaries));
         return summaries;
     }
 

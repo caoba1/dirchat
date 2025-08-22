@@ -13,7 +13,7 @@ public class ConfigManager {
             properties.load(in);
         } catch (IOException e) {
             System.err.println("Failed to load config file: " + e.getMessage());
-            LogMessages.logger.warning("Failed to load configuration file"); //TODO: message.properties
+            LogMessages.logWarning("Failed to load configuration file"); //TODO: message.properties
         }
     }
 
@@ -27,7 +27,7 @@ public class ConfigManager {
             properties.store(out, "Updated indexing method");
         } catch (IOException e) {
             System.err.println("Failed to save config file: " + e.getMessage());
-            LogMessages.logger.warning("Failed to save configuration file"); //TODO: message.properties
+            LogMessages.logWarning("Failed to save configuration file"); //TODO: message.properties
             throw e;
         }
     }
@@ -38,7 +38,7 @@ public class ConfigManager {
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            LogMessages.logger.warning("Invalid paragraphsPerChunk value in config.properties, using default 6");
+            LogMessages.logWarning("Invalid paragraphsPerChunk value in config.properties, using default 6");
             return 6;
         }
     }
@@ -48,7 +48,7 @@ public class ConfigManager {
             properties.store(out, "Updated paragraphsPerChunk value");
         } catch (IOException e) {
             System.err.println("Failed to save config file: " + e.getMessage());
-            LogMessages.logger.warning("Failed to save configuration file");
+            LogMessages.logWarning("Failed to save configuration file");
             throw e;
         }
     }
@@ -59,7 +59,7 @@ public class ConfigManager {
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            LogMessages.logger.warning("Invalid overlap value in config.properties, using default 0");
+            LogMessages.logWarning("Invalid overlap value in config.properties, using default 0");
             return 0;
         }
     }
@@ -69,7 +69,7 @@ public class ConfigManager {
             properties.store(out, "Updated overlap value");
         } catch (IOException e) {
             System.err.println("Failed to save config file: " + e.getMessage());
-            LogMessages.logger.warning("Failed to save configuration file");
+            LogMessages.logWarning("Failed to save configuration file");
             throw e;
         }
         return overlap;
@@ -85,7 +85,7 @@ public class ConfigManager {
             properties.store(out, "Updated Ollama base URL");
         } catch (IOException e) {
             System.err.println("Failed to save config file: " + e.getMessage());
-            LogMessages.logger.warning("Failed to save configuration file");
+            LogMessages.logWarning("Failed to save configuration file");
             throw e;
         }
     }
@@ -96,7 +96,7 @@ public class ConfigManager {
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            LogMessages.logger.warning("Invalid topK value in config.properties, using default 5");
+            LogMessages.logWarning("Invalid topK value in config.properties, using default 5");
             return 5;
         }
     }
@@ -106,7 +106,7 @@ public class ConfigManager {
             properties.store(out, "Updated topK value");
         } catch (IOException e) {
             System.err.println("Failed to save config file: " + e.getMessage());
-            LogMessages.logger.warning("Failed to save configuration file");
+            LogMessages.logWarning("Failed to save configuration file");
             throw e;
         }
     }

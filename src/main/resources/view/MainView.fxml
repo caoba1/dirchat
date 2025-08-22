@@ -53,8 +53,8 @@
                 </tooltip>
              </Button>
             </HBox>
-            <ListView fx:id="chatListView" prefHeight="180" />
-            <ListView fx:id="indexStatusList" prefHeight="220" />
+            <ListView fx:id="chatListView" prefHeight="120" />
+            <ListView fx:id="indexStatusList" prefHeight="280" style="-fx-border-color: #b3d1ff; -fx-border-width: 2; -fx-background-color: #f8fbff;" />
         </VBox>
     </center>
     <bottom>
