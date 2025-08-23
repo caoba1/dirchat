@@ -38,7 +38,12 @@ public class OllamaClient {
             scanner.close();
 
             return response.toString(); // You can parse JSON if needed
+        } catch (org.dirchat.util.SliteErrorException se) {
+            org.dirchat.util.LogMessages.logWarning(se);
+            System.err.println("SLITE error communicating with Ollama: " + se.getMessage());
+            return null;
         } catch (Exception e) {
+            org.dirchat.util.LogMessages.logWarning(e);
             System.err.println("Error communicating with Ollama: " + e.getMessage());
             return null;
         }

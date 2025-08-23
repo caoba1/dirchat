@@ -89,10 +89,12 @@ public class ChatService {
         try {
             allScoredChunks = vectorStore.compoundSearchWithScores(queryVector, topK);
         } catch (IOException e) {
-            LogMessages.logWarning("Failed to search vector store (I/O): " + e.getMessage()); //TODO: messages.properties
+            LogMessages.logWarning("Failed to search vector store (I/O): " + e.getMessage());
+            if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
             throw new RuntimeException(e);
         } catch (SQLException e) {
-            LogMessages.logWarning("Failed to search vector store (SQL): " + e.getMessage()); //TODO: messages.properties
+            LogMessages.logWarning("Failed to search vector store (SQL): " + e.getMessage());
+            if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
             throw new RuntimeException(e);
         }
         List<ScoredChunk> metadataChunks = new java.util.ArrayList<>();
@@ -222,6 +224,10 @@ public class ChatService {
                 if (messageBarSetter != null) messageBarSetter.accept("Error: Malformed response from language server. Please check server logs.");
                 return "[Error: Malformed response from language server. Please check server logs.]";
             }
+        } catch (org.dirchat.util.SqliteErrorException se) {
+            LogMessages.logWarning(se);
+            if (messageBarSetter != null) messageBarSetter.accept("SQLITE error: " + se.getMessage());
+            return "[SQLITE error: " + se.getMessage() + "]";
         } catch (Exception ex) {
             Throwable cause = ex.getCause();
             if (cause instanceof java.net.SocketTimeoutException) {
@@ -275,8 +281,13 @@ public class ChatService {
         List<ScoredChunk> topChunks;
         try {
             topChunks = vectorStore.getChunkEmbeddingsWithScores(queryVector, topK);
+        } catch (org.dirchat.util.SqliteErrorException se) {
+            LogMessages.logWarning("SQLITE error searching vector store: " + se.getMessage());
+            if (messageBarSetter != null) messageBarSetter.accept("SQLITE error: " + se.getMessage());
+            throw new RuntimeException(se);
         } catch (IOException | SQLException e) {
             LogMessages.logWarning("Failed to search vector store: " + e.getMessage());
+            if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
             throw new RuntimeException(e);
         }
         for (ScoredChunk sc : topChunks) {
@@ -293,3 +304,4 @@ public class ChatService {
         return topChunks;
     }
 }
+

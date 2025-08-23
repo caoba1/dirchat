@@ -373,6 +373,7 @@ public class VectorStore {
                 }
             }
         } catch (Exception e) {
+            LogMessages.logWarning(e.getMessage());
             return false;
         }
     }
@@ -479,6 +480,7 @@ public class VectorStore {
                 }
             }
         } catch (Exception e) {
+            LogMessages.logWarning(e.getMessage());
             return false;
         }
     }
@@ -504,6 +506,7 @@ public class VectorStore {
             }
             if (progressCallback != null) progressCallback.accept("Indexing complete for folder: " + folderPath, 1.0);
         } catch (Exception e) {
+            LogMessages.logWarning(e.getMessage());
             if (progressCallback != null) progressCallback.accept("Indexing failed: " + e.getMessage(), 1.0);
         }
     }

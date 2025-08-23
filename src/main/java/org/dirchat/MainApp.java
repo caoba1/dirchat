@@ -27,7 +27,11 @@ public class MainApp extends Application {
                     f.delete();
                 }
             }
+        } catch (org.dirchat.util.SqliteErrorException se) {
+            org.dirchat.util.LogMessages.logWarning(se.getMessage());
+            System.err.println("SLITE error clearing log or deleting .lck files: " + se.getMessage());
         } catch (Exception e) {
+            org.dirchat.util.LogMessages.logWarning(e);
             System.err.println("Failed to clear log or delete .lck files: " + e.getMessage());
         }
     }

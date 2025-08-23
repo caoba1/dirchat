@@ -69,6 +69,7 @@ public class UnifiedTest {
             }
             System.out.println("Embedding method in SQLite: " + store.getSqliteEmbeddingMethod());
         } catch (Exception e) {
+            org.dirchat.util.LogMessages.logWarning(e.getMessage());
             System.err.println("❌ Error saving embeddings: " + e.getMessage());
             e.printStackTrace();
         }

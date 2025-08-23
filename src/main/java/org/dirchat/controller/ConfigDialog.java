@@ -48,6 +48,7 @@ public class ConfigDialog extends Stage {
                 close();
             } catch (Exception e) {
                 System.err.println("Failed to save configuration: " + e.getMessage());
+                org.dirchat.util.LogMessages.logWarning(e.getMessage());
             }
         });
 

@@ -57,11 +57,18 @@ public class DocumentLoader {
                     documents.add(new LoadedDocument(documentId, file.getName(), content, metadata, file.getAbsolutePath()));
                     String msg = "Loaded document: " + file.getName();
                     LogMessages.log(msg);
+                } catch (org.dirchat.util.SqliteErrorException se) {
+                    String errMsg = "SQLITE error parsing: " + file.getName();
+                    System.err.println(errMsg);
+                    LogMessages.logWarning(errMsg + ", reason: " + se.getMessage());
+                    se.printStackTrace();
+                    if (messageBarSetter != null) messageBarSetter.accept("SQLITE error: " + se.getMessage());
                 } catch (Exception e) {
                     String errMsg = "Failed to parse: " + file.getName();
                     System.err.println(errMsg);
                     LogMessages.logWarning(errMsg + ", reason: " + e.getMessage());
                     e.printStackTrace();
+                    if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
                 }
             }
         }
@@ -110,6 +117,7 @@ public class DocumentLoader {
             }
         } catch (Exception e) {
             sb.append("[Error extracting PDF TOC: ").append(e.getMessage()).append("]");
+            LogMessages.logWarning("Error extracting PDF TOC: " + e.getMessage());
         }
         return sb.toString();
     }

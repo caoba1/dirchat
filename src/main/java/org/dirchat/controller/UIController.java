@@ -92,12 +92,26 @@ public class UIController {
                 }
             }
         });
+
+        // Initialize message bar
+        setMessageBar("Welcome to dirchat! Please load a folder to start.", "black");
+
+        // Initialize index loaded indicator
+        updateIndexLoadedIndicator(IndexStatus.NOT_SELECTED);
+        // Set initial folder label
+        folderLabel.setText(messages.getString("label.noFolderSelected"));
     }
 
     // Called from LogMessages to update the message bar
     public void setMessageBar(String message) {
+        setMessageBar(message, "black");
+    }
+
+    // Overloaded to allow color
+    public void setMessageBar(String message, String color) {
         if (messageBar != null) {
             messageBar.setText(message);
+            messageBar.setStyle("-fx-text-fill: " + color + ";");
         }
     }
 
@@ -112,44 +126,51 @@ public class UIController {
             setMessageBar("Loading folder: " + selectedFolder);
             folderLabel.setText(messages.getString("label.selectedFolder") + ": " + selectedFolder);
             mainBorderPane.setCursor(Cursor.WAIT);
-            indexLoadedIndicator.setVisible(false);
             ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), "Indexing documents...");
             progressDialog.show();
 
             javafx.concurrent.Task<Void> loadTask = new javafx.concurrent.Task<>() {
                 @Override
                 protected Void call() {
-                    loadedDocuments = documentLoader.loadDocumentsFromFolder(selectedFolder);
-                    Platform.runLater(() -> setIndexStatusListItems(loadedDocuments));
-                    EmbeddingService embeddingService = new EmbeddingService();
-                    TextChunker textChunker = new TextChunker(6);
-                    int totalDocs = loadedDocuments.size();
-                    for (int docIdx = 0; docIdx < totalDocs; docIdx++) {
-                        org.dirchat.document.DocumentLoader.LoadedDocument doc = loadedDocuments.get(docIdx);
-                        final int currentDocIdx = docIdx;
-                        List<Chunk> chunks = textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
-                        embeddingService.embedChunks(chunks, (message, progress) -> {
-                            double docProgress = progress; // Per-file progress only
-                            double overallProgress = ((double) currentDocIdx + progress) / totalDocs;
-                            Platform.runLater(() -> {
-                                progressDialog.setMessage(message);
-                                progressDialog.setFileName("Indexing: " + doc.fileName);
-                                progressDialog.setFileProgress(docProgress);
-                                progressDialog.setProgress(overallProgress); // Only overall progress in main bar
+                    try {
+                        loadedDocuments = documentLoader.loadDocumentsFromFolder(selectedFolder);
+                        Platform.runLater(() -> setIndexStatusListItems(loadedDocuments));
+                        EmbeddingService embeddingService = new EmbeddingService();
+                        TextChunker textChunker = new TextChunker(6);
+                        int totalDocs = loadedDocuments.size();
+                        for (int docIdx = 0; docIdx < totalDocs; docIdx++) {
+                            org.dirchat.document.DocumentLoader.LoadedDocument doc = loadedDocuments.get(docIdx);
+                            final int currentDocIdx = docIdx;
+                            List<Chunk> chunks = textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
+                            embeddingService.embedChunks(chunks, (message, progress) -> {
+                                double docProgress = progress; // Per-file progress only
+                                double overallProgress = ((double) currentDocIdx + progress) / totalDocs;
+                                Platform.runLater(() -> {
+                                    progressDialog.setMessage(message);
+                                    progressDialog.setFileName("Indexing: " + doc.fileName);
+                                    progressDialog.setFileProgress(docProgress);
+                                    progressDialog.setProgress(overallProgress); // Only overall progress in main bar
+                                });
                             });
+                        }
+                        Platform.runLater(() -> {
+                            progressDialog.close();
+                            mainBorderPane.setCursor(Cursor.DEFAULT);
+                            updateIndexLoadedIndicator(IndexStatus.LOADED);
+                            setMessageBar("Index loaded successfully!");
+                        });
+                    } catch (Exception ex) {
+                        LogMessages.logWarning(ex.getMessage());
+                        Platform.runLater(() -> {
+                            progressDialog.close();
+                            mainBorderPane.setCursor(Cursor.DEFAULT);
+                            updateIndexLoadedIndicator(IndexStatus.FAILED);
+                            setMessageBar("Error loading folder: " + ex.getMessage(), "red");
                         });
                     }
-                    Platform.runLater(() -> {
-                        progressDialog.close();
-                        mainBorderPane.setCursor(Cursor.DEFAULT);
-                        indexLoadedIndicator.setVisible(true);
-                        setMessageBar("Index loaded successfully!");
-                    });
                     return null;
                 }
             };
-            // Run the load task in a separate thread... TODO: handle button disable/enable
-            // TODO: handle exceptions and errors
             new Thread(loadTask).start();
         }
     }
@@ -168,8 +189,9 @@ public class UIController {
             ChatService chatService = new ChatService(vectorStore, loadedDocuments, new TextChunker(6), this);
             answer = chatService.answerQuestion(question, ChatService.MAX_SEARCH_RESULTS);
         } catch (Exception ex) {
-            LogMessages.log("Failed to answer question: " + ex.getMessage());
+            LogMessages.logWarning(ex.getMessage());
             answer = messages.getString("error.failedToAnswer");
+            setMessageBar("Error: " + ex.getMessage(), "red");
         }
         LogMessages.log("Answer: " + answer); //Also setsMessageBar
         chatListView.getItems().add(messages.getString("chat.question") + ": " + question);
@@ -196,6 +218,32 @@ public class UIController {
     public void setIndexStatusListItems(List<org.dirchat.document.DocumentLoader.LoadedDocument> docs) {
         if (indexStatusList != null) {
             indexStatusList.getItems().setAll(docs);
+        }
+    }
+
+    // In UIController.java
+    public enum IndexStatus {
+        LOADED, FAILED, NOT_SELECTED
+    }
+
+    public void updateIndexLoadedIndicator(IndexStatus status) {
+        if (indexLoadedIndicator == null) return;
+        switch (status) {
+            case LOADED:
+                indexLoadedIndicator.setText("✅");
+                indexLoadedIndicator.setStyle("-fx-font-size: 18; -fx-text-fill: green;");
+                indexLoadedIndicator.setVisible(true);
+                break;
+            case FAILED:
+                indexLoadedIndicator.setText("❌");
+                indexLoadedIndicator.setStyle("-fx-font-size: 18; -fx-text-fill: red;");
+                indexLoadedIndicator.setVisible(true);
+                break;
+            case NOT_SELECTED:
+                indexLoadedIndicator.setText("❓");
+                indexLoadedIndicator.setStyle("-fx-font-size: 18; -fx-text-fill: orange;");
+                indexLoadedIndicator.setVisible(true);
+                break;
         }
     }
 }
