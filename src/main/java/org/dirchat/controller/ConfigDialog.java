@@ -37,7 +37,23 @@ public class ConfigDialog extends Stage {
         Label topKLabel = new Label("Top K (search results):");
         javafx.scene.control.TextField topKField = new javafx.scene.control.TextField(String.valueOf(ConfigManager.getTopK()));
 
-        Button saveButton = new Button("Save");
+        // Load resource bundle for localization
+        java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("messages");
+
+        // Map config values to localized labels
+        java.util.Map<String, String> outputModeLabels = new java.util.LinkedHashMap<>();
+        outputModeLabels.put("none", bundle.getString("output.mode.none"));
+        outputModeLabels.put("truncate", bundle.getString("output.mode.truncate"));
+        outputModeLabels.put("summarize", bundle.getString("output.mode.summarize"));
+
+        Label outputModeLabel = new Label(bundle.getString("output.mode"));
+        ComboBox<String> outputModeComboBox = new ComboBox<>();
+        outputModeComboBox.getItems().addAll(outputModeLabels.values());
+        // Set selected value based on config
+        String currentMode = ConfigManager.getOutputMode();
+        outputModeComboBox.setValue(outputModeLabels.getOrDefault(currentMode, outputModeLabels.get("none")));
+
+        Button saveButton = new Button(bundle.getString("button.ask"));
         saveButton.setOnAction(event -> {
             try{
                 ConfigManager.setIndexingMethod(methodSelector.getValue());
@@ -45,6 +61,13 @@ public class ConfigDialog extends Stage {
                 ConfigManager.setOverlap(Integer.parseInt(overlapField.getText()));
                 ConfigManager.setOllamaBaseUrl(ollamaUrlField.getText());
                 ConfigManager.setTopK(Integer.parseInt(topKField.getText()));
+                // Find config value from selected label
+                String selectedLabel = outputModeComboBox.getValue();
+                String selectedMode = outputModeLabels.entrySet().stream()
+                    .filter(e -> e.getValue().equals(selectedLabel))
+                    .map(java.util.Map.Entry::getKey)
+                    .findFirst().orElse("none");
+                ConfigManager.setOutputMode(selectedMode);
                 close();
             } catch (Exception e) {
                 System.err.println("Failed to save configuration: " + e.getMessage());
@@ -58,8 +81,10 @@ public class ConfigDialog extends Stage {
                 overlapLabel, overlapField,
                 ollamaUrlLabel, ollamaUrlField,
                 topKLabel, topKField,
+                outputModeLabel,
+                outputModeComboBox,
                 saveButton);
         vbox.setPadding(new Insets(20));
-        setScene(new Scene(vbox, 300, 350));
+        setScene(new Scene(vbox, 300, 420));
     }
 }

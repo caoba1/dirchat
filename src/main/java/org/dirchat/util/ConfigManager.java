@@ -110,4 +110,19 @@ public class ConfigManager {
             throw e;
         }
     }
+
+    // output.mode (enum: truncate, summarize, none)
+    public static String getOutputMode() {
+        return properties.getProperty("output.mode", "none");
+    }
+    public static void setOutputMode(String mode) throws IOException {
+        properties.setProperty("output.mode", mode);
+        try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
+            properties.store(out, "Updated output mode");
+        } catch (IOException e) {
+            System.err.println("Failed to save config file: " + e.getMessage());
+            LogMessages.logWarning("Failed to save configuration file");
+            throw e;
+        }
+    }
 }

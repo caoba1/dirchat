@@ -2,6 +2,7 @@
 <!-- JavaFX layout file -->
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.ProgressBar?>
@@ -12,50 +13,57 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.control.MenuBar?>
-<BorderPane fx:id="mainBorderPane" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.dirchat.controller.UIController">
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<BorderPane fx:id="mainBorderPane"
+            xmlns="http://javafx.com/javafx/24.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.dirchat.controller.UIController">
     <top>
-        <MenuBar/>
-        <VBox spacing="5">
-            <HBox prefHeight="6.0" prefWidth="501.0" spacing="10">
-                <padding>
-                    <Insets bottom="10" left="10" right="10" top="10" />
-                </padding>
-                <Button fx:id="loadFolderButton" text="📁 Load Folder">
+        <VBox alignment="CENTER" spacing="4">
+            <ImageView fx:id="logoImageView" fitHeight="60" preserveRatio="true">
+                <image>
+                    <Image url="@../icons/dirchat-logo.png" />
+                </image>
+            </ImageView>
+            <Label text="Welcome!" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-padding: 10 0 10 0;" />
+            <Button fx:id="configButton" text="⚙ Config" style="-fx-font-size: 14; -fx-padding: 4 12;" />
+        </VBox>
+    </top>
+    <center>
+        <SplitPane dividerPositions="0.3">
+            <VBox spacing="8" style="-fx-background-color: #f8fbff; -fx-padding: 10;">
+                <Label text="Found Files" style="-fx-font-size: 14; -fx-font-weight: bold;" />
+                <HBox spacing="6">
+                    <ComboBox fx:id="sortComboBox" promptText="Sort by" focusTraversable="true" />
+                    <ComboBox fx:id="filterComboBox" promptText="Filter by score" focusTraversable="true" />
+                </HBox>
+                <ListView fx:id="indexStatusList" prefWidth="220" focusTraversable="true" />
+            </VBox>
+            <VBox spacing="10" style="-fx-padding: 20;">
+                <Button fx:id="loadFolderButton" text="📁 Load Folder" focusTraversable="true">
                     <tooltip>
                         <Tooltip text="Load a folder of documents" />
                     </tooltip>
                 </Button>
-                <Label fx:id="folderLabel" style="-fx-font-size: 11; -fx-text-fill: #555;" text="No folder has been selected" />
-                <Region HBox.hgrow="ALWAYS" />
-                <Button fx:id="configButton" text="⚙️ Config">
+                <Label fx:id="folderLabel">Label</Label>
+                <HBox spacing="10">
+                    <TextField fx:id="questionField" prefHeight="25.0" prefWidth="350.0" promptText="Type your question here..." focusTraversable="true" />
+                    <Button fx:id="askButton" text="💬 Ask" focusTraversable="true">
+                        <tooltip>
+                            <Tooltip text="Ask a question about the loaded files" />
+                        </tooltip>
+                    </Button>
+                </HBox>
+                <ListView fx:id="chatListView" prefHeight="120" focusTraversable="true" />
+                <Button fx:id="exportChatButton" text="Export Chat" focusTraversable="true">
                     <tooltip>
-                        <Tooltip text="Open configuration" />
+                        <Tooltip text="Export the conversation to a file" />
                     </tooltip>
                 </Button>
-            </HBox>
-            <HBox spacing="8">
-                <ProgressBar fx:id="folderProgressBar" prefHeight="12.0" prefWidth="420.0" progress="0.0" />
-                <Label fx:id="indexLoadedIndicator" text="✅" style="-fx-font-size: 18; -fx-text-fill: green;" visible="false">
-                    <tooltip>
-                        <Tooltip text="Index loaded!" />
-                    </tooltip>
-                </Label>
-            </HBox>
-        </VBox>
-    </top>
-    <center>
-        <VBox spacing="5">
-            <HBox prefHeight="6.0" prefWidth="501.0" spacing="10">
-             <TextField fx:id="questionField" prefHeight="25.0" prefWidth="350.0" promptText="Type your question here..." />
-             <Button fx:id="askButton" text="💬 Ask">
-                <tooltip>
-                    <Tooltip text="Ask a question" />
-                </tooltip>
-             </Button>
-            </HBox>
-            <ListView fx:id="chatListView" prefHeight="120" />
-            <ListView fx:id="indexStatusList" prefHeight="280" style="-fx-border-color: #b3d1ff; -fx-border-width: 2; -fx-background-color: #f8fbff;" />
-        </VBox>
+            </VBox>
+        </SplitPane>
     </center>
     <bottom>
         <HBox spacing="5" style="-fx-background-color: #f0f0f0;">

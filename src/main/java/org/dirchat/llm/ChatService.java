@@ -205,6 +205,10 @@ public class ChatService {
             documentsMetadata = documentsMetadata.substring(0, Math.min(documentsMetadata.length(), maxContextLength));
             question = question.substring(0, Math.min(question.length(), maxContextLength));
 
+            // Now chat and wait for resutls. Using documents that appear on the left. Use a prompt template.
+            // Todo: do summaries for getting context.
+            // Todo: rearrange document metadata to a summary also
+
             // The following line does not work. Not even reducing the context length helps.
             // I am changing maxContextLength to 512.  What is the maximum context length for Mistral? For tinyllama?
             String prompt = "Answer the following question based on the context below.\n\n"
@@ -224,10 +228,6 @@ public class ChatService {
                 if (messageBarSetter != null) messageBarSetter.accept("Error: Malformed response from language server. Please check server logs.");
                 return "[Error: Malformed response from language server. Please check server logs.]";
             }
-        } catch (org.dirchat.util.SqliteErrorException se) {
-            LogMessages.logWarning(se);
-            if (messageBarSetter != null) messageBarSetter.accept("SQLITE error: " + se.getMessage());
-            return "[SQLITE error: " + se.getMessage() + "]";
         } catch (Exception ex) {
             Throwable cause = ex.getCause();
             if (cause instanceof java.net.SocketTimeoutException) {
@@ -281,10 +281,6 @@ public class ChatService {
         List<ScoredChunk> topChunks;
         try {
             topChunks = vectorStore.getChunkEmbeddingsWithScores(queryVector, topK);
-        } catch (org.dirchat.util.SqliteErrorException se) {
-            LogMessages.logWarning("SQLITE error searching vector store: " + se.getMessage());
-            if (messageBarSetter != null) messageBarSetter.accept("SQLITE error: " + se.getMessage());
-            throw new RuntimeException(se);
         } catch (IOException | SQLException e) {
             LogMessages.logWarning("Failed to search vector store: " + e.getMessage());
             if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
@@ -303,5 +299,32 @@ public class ChatService {
         }
         return topChunks;
     }
-}
 
+    // Apply output mode: summarize, truncate, or none
+    public String processAnswer(String answer) {
+        String mode = org.dirchat.util.ConfigManager.getOutputMode();
+        switch (mode) {
+            case "summarize":
+                return summarize(answer);
+            case "truncate":
+                return truncate(answer);
+            default:
+                return answer;
+        }
+    }
+
+    // Stub for truncation logic
+    private String truncate(String text) {
+        // TODO: Implement actual truncation logic
+        if (text.length() > 500) {
+            return text.substring(0, 500) + "...";
+        }
+        return text;
+    }
+
+    // Stub for summarization logic
+    private String summarize(String text) {
+        // TODO: Implement actual summarization logic
+        return "[Summary] " + text;
+    }
+}

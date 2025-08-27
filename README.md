@@ -1,4 +1,8 @@
-# A Java Directory Chat Application
+# A directory chat application written in Java
+<p align="left">
+  <img src="src/main/resources/icons/dirchat-logo-full.png" alt="dirchat full logo" height="100">
+</p>
+
 
 A desktop application using JavaFX for question answering over local documents using Apache Tika, LangChain4j, and JavaFX. 
 
