@@ -5,14 +5,12 @@
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
-<?import javafx.scene.control.ProgressBar?>
-<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
-<?import javafx.scene.control.MenuBar?>
 <?import javafx.scene.control.SplitPane?>
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.image.ImageView?>
@@ -21,20 +19,21 @@
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="org.dirchat.controller.UIController">
     <top>
-        <VBox alignment="CENTER" spacing="4">
+        <HBox alignment="TOP_LEFT" spacing="4">
             <ImageView fx:id="logoImageView" fitHeight="60" preserveRatio="true">
                 <image>
                     <Image url="@../icons/dirchat-logo.png" />
                 </image>
             </ImageView>
-            <Label text="Welcome!" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-padding: 10 0 10 0;" />
-            <Button fx:id="configButton" text="⚙ Config" style="-fx-font-size: 14; -fx-padding: 4 12;" />
-        </VBox>
+            <Label fx:id="welcomeLabel" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-padding: 10 0 10 0;" />
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="configButton" style="-fx-font-size: 14; -fx-padding: 4 12;" />
+        </HBox>
     </top>
     <center>
-        <SplitPane dividerPositions="0.3">
+        <SplitPane dividerPositions="0.3"> <!-- 30% to first pane and boxes -->
             <VBox spacing="8" style="-fx-background-color: #f8fbff; -fx-padding: 10;">
-                <Label text="Found Files" style="-fx-font-size: 14; -fx-font-weight: bold;" />
+                <Label fx:id="foundFilesLabel" style="-fx-font-size: 14; -fx-font-weight: bold;" />
                 <HBox spacing="6">
                     <ComboBox fx:id="sortComboBox" promptText="Sort by" focusTraversable="true" />
                     <ComboBox fx:id="filterComboBox" promptText="Filter by score" focusTraversable="true" />
@@ -42,32 +41,47 @@
                 <ListView fx:id="indexStatusList" prefWidth="220" focusTraversable="true" />
             </VBox>
             <VBox spacing="10" style="-fx-padding: 20;">
-                <Button fx:id="loadFolderButton" text="📁 Load Folder" focusTraversable="true">
-                    <tooltip>
-                        <Tooltip text="Load a folder of documents" />
-                    </tooltip>
-                </Button>
-                <Label fx:id="folderLabel">Label</Label>
-                <HBox spacing="10">
-                    <TextField fx:id="questionField" prefHeight="25.0" prefWidth="350.0" promptText="Type your question here..." focusTraversable="true" />
-                    <Button fx:id="askButton" text="💬 Ask" focusTraversable="true">
+                <VBox spacing="10">
+                    <HBox spacing="10" alignment="TOP_LEFT" HBox.hgrow="ALWAYS">
+                        <!-- INDEXING -->
+                        <Button fx:id="loadFolderButton" focusTraversable="true">
+                            <tooltip>
+                                <Tooltip fx:id="loadFolderTooltip" />
+                            </tooltip>
+                        </Button>
+                        <Label fx:id="folderLabel" />
+                    </HBox>
+                </VBox>
+                <VBox spacing="10"> <!-- Adding vBox to the definition here, fills the rest in vgrow of the parent -->
+                    <HBox spacing="10" HBox.hgrow="ALWAYS">
+                        <!-- QUESTION AND SEARCH -->
+                        <TextArea fx:id="questionField"
+                                  promptText="Type your question here..."
+                                  wrapText="true"
+                                  HBox.hgrow="ALWAYS"
+                                  focusTraversable="true" />
+                        <Button fx:id="askButton" focusTraversable="true">
+                            <tooltip>
+                                <Tooltip fx:id="askButtonTooltip" />
+                            </tooltip>
+                        </Button>
+                    </HBox>
+                </VBox>
+                <VBox spacing="10" VBox.vgrow="ALWAYS">
+                    <ListView fx:id="chatListView"
+                              prefHeight="120"
+                              VBox.vgrow="ALWAYS"
+                              focusTraversable="true" />
+                    <Button fx:id="exportChatButton" focusTraversable="true">
                         <tooltip>
-                            <Tooltip text="Ask a question about the loaded files" />
+                            <Tooltip fx:id="exportChatTooltip" />
                         </tooltip>
                     </Button>
-                </HBox>
-                <ListView fx:id="chatListView" prefHeight="120" focusTraversable="true" />
-                <Button fx:id="exportChatButton" text="Export Chat" focusTraversable="true">
-                    <tooltip>
-                        <Tooltip text="Export the conversation to a file" />
-                    </tooltip>
-                </Button>
+                </VBox>
             </VBox>
         </SplitPane>
     </center>
     <bottom>
-        <HBox spacing="5" style="-fx-background-color: #f0f0f0;">
-            <Label fx:id="messageBar" style="-fx-font-size: 12; -fx-text-fill: #333;" text="" />
-        </HBox>
+        <Label fx:id="messageBar" style="-fx-padding: 8; -fx-background-color: #eaf2fb; -fx-font-size: 13;" />
     </bottom>
 </BorderPane>

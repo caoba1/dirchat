@@ -6,7 +6,7 @@ import javafx.application.Platform;
 import javafx.scene.Cursor;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
+import javafx.scene.control.TextArea;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import org.dirchat.document.DocumentLoader;
@@ -31,7 +31,7 @@ import java.util.ResourceBundle;
 public class UIController {
     private final DocumentLoader documentLoader = new DocumentLoader();
     @FXML
-    private TextField questionField;
+    private TextArea questionField;
     @FXML
     private Button loadFolderButton;
     @FXML
@@ -70,31 +70,37 @@ public class UIController {
         askButton.setText(messages.getString("button.ask"));
         folderLabel.setText(messages.getString("label.noFolderSelected"));
         questionField.setPromptText(messages.getString("prompt.typeQuestion"));
-        loadFolderButton.setOnAction(e -> handleLoadFolder());
-        configButton.setOnAction(e -> {
-            Stage stage = (Stage) mainBorderPane.getScene().getWindow();
-            new org.dirchat.controller.ConfigDialog(stage).showAndWait();
-            updateOutputModeIndicator(); // Update after config dialog closes
-        });
-        askButton.setOnAction(e -> handleAskQuestion());
-        chatListView.getItems().clear();
-        askButton.setDisable(true); // Disable until folder is loaded
-
-        // Sort options
-        sortComboBox.getItems().addAll("Name", "Score", "Date");
+        loadFolderButton.setTooltip(new Tooltip(messages.getString("tooltip.loadFolder")));
+        askButton.setTooltip(new Tooltip(messages.getString("tooltip.ask")));
+        exportChatButton.setTooltip(new Tooltip(messages.getString("tooltip.exportChat")));
+        configButton.setText(messages.getString("button.config"));
+        configButton.setTooltip(new Tooltip(messages.getString("tooltip.config")));
+        // Localized sort options
+        sortComboBox.getItems().addAll(
+            messages.getString("sort.name"),
+            messages.getString("sort.score"),
+            messages.getString("sort.date")
+        );
+        sortComboBox.setPromptText(messages.getString("prompt.sortBy"));
         sortComboBox.setOnAction(e -> applySortAndFilter());
-        // Filter options
-        filterComboBox.getItems().addAll("All", "> 0.5", "> 0.7", "> 0.9");
+        // Localized filter options
+        filterComboBox.getItems().addAll(
+            messages.getString("filter.all"),
+            messages.getString("filter.05"),
+            messages.getString("filter.07"),
+            messages.getString("filter.09")
+        );
+        filterComboBox.setPromptText(messages.getString("prompt.filterByScore"));
         filterComboBox.setOnAction(e -> applySortAndFilter());
         // Export chat
         exportChatButton.setOnAction(e -> exportChatHistory());
         // Custom cell factory for indexStatusList (highlight selection)
         indexStatusList.setCellFactory(listView -> new ListCell<>() {
-            private final Button openButton = new Button("Open");
+            private final Button openButton = new Button(messages.getString("button.open"));
             private final Label scoreLabel = new Label();
             private final HBox hbox = new HBox(8);
             {
-                openButton.setTooltip(new Tooltip("Open this file"));
+                openButton.setTooltip(new Tooltip(messages.getString("tooltip.openFile")));
                 openButton.setOnAction(e -> {
                     org.dirchat.document.DocumentLoader.LoadedDocument doc = getItem();
                     if (doc != null) {
@@ -111,9 +117,9 @@ public class UIController {
                     setGraphic(null);
                     setStyle("");
                 } else {
-                    String scoreText = "Score: N/A";
+                    String scoreText = messages.getString("label.scoreNA");
                     if (item.metadata != null && item.metadata.get("score") != null) {
-                        scoreText = "Score: " + item.metadata.get("score");
+                        scoreText = messages.getString("label.score") + " " + item.metadata.get("score");
                     }
                     scoreLabel.setText(item.fileName + " | " + scoreText);
                     setGraphic(hbox);
@@ -125,54 +131,8 @@ public class UIController {
                 }
             }
         });
-        // Custom cell factory for chatListView (user/AI distinction, copy button)
-        chatListView.setCellFactory(listView -> new ListCell<>() {
-            private final Button copyButton = new Button("Copy");
-            private final HBox hbox = new HBox(8);
-            private final Label iconLabel = new Label();
-            {
-                copyButton.setTooltip(new Tooltip("Copy this message"));
-                copyButton.setOnAction(e -> {
-                    String text = getItem();
-                    if (text != null) {
-                        final java.awt.datatransfer.StringSelection selection = new java.awt.datatransfer.StringSelection(text);
-                        java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
-                        setMessageBar("Copied to clipboard");
-                    }
-                });
-                hbox.getChildren().addAll(iconLabel, copyButton);
-            }
-            @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                    setGraphic(null);
-                } else {
-                    if (item.startsWith(messages.getString("chat.question"))) {
-                        iconLabel.setText("👤");
-                        setStyle("-fx-text-fill: #0077cc;");
-                    } else if (item.startsWith(messages.getString("chat.answer"))) {
-                        iconLabel.setText("🤖");
-                        setStyle("-fx-text-fill: #228B22;");
-                    } else {
-                        iconLabel.setText("");
-                        setStyle("");
-                    }
-                    setText(item);
-                    setGraphic(hbox);
-                }
-            }
-        });
-
-        // Initialize message bar
-        setMessageBar("Welcome to dirchat! Please load a folder to start.", "black");
-
-        // Initialize index loaded indicator
-        updateIndexLoadedIndicator(IndexStatus.NOT_SELECTED);
-        // Set initial folder label
-        folderLabel.setText(messages.getString("label.noFolderSelected"));
-        updateOutputModeIndicator();
+        chatListView.getItems().clear();
+        askButton.setDisable(true); // Disable until folder is loaded
     }
 
     // Called from LogMessages to update the message bar

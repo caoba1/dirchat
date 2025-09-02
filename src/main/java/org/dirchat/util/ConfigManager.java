@@ -125,4 +125,19 @@ public class ConfigManager {
             throw e;
         }
     }
+
+    // app.language
+    public static String getLanguage() {
+        return properties.getProperty("app.language", "en");
+    }
+    public static void setLanguage(String langCode) throws IOException {
+        properties.setProperty("app.language", langCode);
+        try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
+            properties.store(out, "Updated app language");
+        } catch (IOException e) {
+            System.err.println("Failed to save config file: " + e.getMessage());
+            LogMessages.logWarning("Failed to save configuration file");
+            throw e;
+        }
+    }
 }
