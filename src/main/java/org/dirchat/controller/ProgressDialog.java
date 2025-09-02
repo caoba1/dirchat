@@ -15,12 +15,13 @@ public class ProgressDialog {
     private final ProgressBar progressBar;
     private final Label fileLabel;
     private final ProgressBar fileProgressBar;
+    private final java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("messages");
 
     public ProgressDialog(Stage owner, String initialMessage) {
         dialogStage = new Stage();
         dialogStage.initOwner(owner);
         dialogStage.initModality(Modality.APPLICATION_MODAL);
-        dialogStage.setTitle("Progress");
+        dialogStage.setTitle(bundle.getString("progress.title"));
 
         messageLabel = new Label(initialMessage);
         fileLabel = new Label("");

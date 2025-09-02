@@ -12,8 +12,8 @@ import javafx.stage.Stage;
 import org.dirchat.util.ConfigManager;
 
 public class ConfigDialog extends Stage {
-    public ConfigDialog( Stage parent) {
-        setTitle("dirchat - Configuration");
+    public ConfigDialog(Stage parent) {
+        setTitle(java.util.ResourceBundle.getBundle("messages").getString("config.title")); // Localized title
         initOwner(parent);
         initModality(Modality.APPLICATION_MODAL);
 
@@ -49,15 +49,15 @@ public class ConfigDialog extends Stage {
 
         // Output mode labels for localization
         java.util.Map<String, String> outputModeLabels = new java.util.LinkedHashMap<>();
-        outputModeLabels.put("default", bundle.getString("outputMode.default"));
-        outputModeLabels.put("sbert", bundle.getString("outputMode.sbert"));
-        outputModeLabels.put("ollama", bundle.getString("outputMode.ollama"));
+        outputModeLabels.put("truncate", bundle.getString("output.mode.truncate"));
+        outputModeLabels.put("summarize", bundle.getString("output.mode.summarize"));
+        outputModeLabels.put("none", bundle.getString("output.mode.none"));
 
         // Populate outputModeComboBox with localized labels
         outputModeComboBox.getItems().addAll(outputModeLabels.values());
         // Set current value based on config
         String currentMode = ConfigManager.getOutputMode();
-        String currentLabel = outputModeLabels.getOrDefault(currentMode, outputModeLabels.get("default"));
+        String currentLabel = outputModeLabels.getOrDefault(currentMode, outputModeLabels.get("none"));
         outputModeComboBox.setValue(currentLabel);
 
         String[] methods = {"default", "sbert", "ollama"};
@@ -69,6 +69,7 @@ public class ConfigDialog extends Stage {
         // Supported languages and display names
         java.util.Map<String, String> languageMap = new java.util.LinkedHashMap<>();
         languageMap.put("en", bundle.getString("language.en"));
+        languageMap.put("es", bundle.getString("language.es"));
         languageMap.put("de", bundle.getString("language.de"));
         languageMap.put("fr", bundle.getString("language.fr"));
         Label languageLabel = new Label(bundle.getString("config.language"));

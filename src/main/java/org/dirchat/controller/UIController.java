@@ -159,23 +159,23 @@ public class UIController {
             boolean indexExists = indexDbFile.exists() && indexDbFile.length() > 0;
             if (!indexExists) {
                 javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
-                alert.setTitle("No Index Found");
+                alert.setTitle(messages.getString("dialog.noIndex.title"));
                 alert.setHeaderText(null);
-                alert.setContentText("No index found for this folder. Do you want to generate a new index? Press Yes to generate, or Cancel to abort.");
-                javafx.scene.control.ButtonType yesBtn = new javafx.scene.control.ButtonType("Yes", javafx.scene.control.ButtonBar.ButtonData.YES);
-                javafx.scene.control.ButtonType cancelBtn = new javafx.scene.control.ButtonType("Cancel", javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
+                alert.setContentText(messages.getString("dialog.noIndex.content"));
+                javafx.scene.control.ButtonType yesBtn = new javafx.scene.control.ButtonType(messages.getString("dialog.noIndex.yes"), javafx.scene.control.ButtonBar.ButtonData.YES);
+                javafx.scene.control.ButtonType cancelBtn = new javafx.scene.control.ButtonType(messages.getString("dialog.noIndex.cancel"), javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
                 alert.getButtonTypes().setAll(yesBtn, cancelBtn);
                 javafx.scene.control.ButtonType result = alert.showAndWait().orElse(cancelBtn);
                 if (result != yesBtn) {
-                    setMessageBar("Folder loading cancelled. No index generated.");
+                    setMessageBar(messages.getString("status.folderLoadCancelled"));
                     return;
                 }
             }
-            LogMessages.log("Loading folder: " + selectedFolder);
-            setMessageBar("Loading folder: " + selectedFolder);
+            LogMessages.log(messages.getString("LOADING_FOLDER").replace("{0}", selectedFolder));
+            setMessageBar(messages.getString("LOADING_FOLDER").replace("{0}", selectedFolder));
             folderLabel.setText(messages.getString("label.selectedFolder") + ": " + selectedFolder);
             mainBorderPane.setCursor(Cursor.WAIT);
-            ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), "Indexing documents...");
+            ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), messages.getString("progress.indexingDocuments"));
             progressDialog.show();
 
             javafx.concurrent.Task<Void> loadTask = new javafx.concurrent.Task<>() {
@@ -231,8 +231,8 @@ public class UIController {
             return;
         }
         mainBorderPane.setCursor(Cursor.WAIT);
-        LogMessages.log("Question: " + question);
-        setMessageBar("Question: " + question);
+        LogMessages.log(messages.getString("QUESTION").replace("{0}", question));
+        setMessageBar(messages.getString("QUESTION").replace("{0}", question));
         chatListView.getItems().clear();
         String answer;
         try {
@@ -241,9 +241,9 @@ public class UIController {
         } catch (Exception ex) {
             LogMessages.logWarning(ex.getMessage());
             answer = messages.getString("error.failedToAnswer");
-            setMessageBar("Error: " + ex.getMessage(), "red");
+            setMessageBar(messages.getString("error.failedToAnswer") + ": " + ex.getMessage(), "red");
         }
-        LogMessages.log("Answer: " + answer); //Also setsMessageBar
+        LogMessages.log(messages.getString("ANSWER").replace("{0}", answer));
         chatListView.getItems().add(messages.getString("chat.question") + ": " + question);
         chatListView.getItems().add(messages.getString("chat.answer") + ": " + answer);
         questionField.clear();
@@ -251,15 +251,14 @@ public class UIController {
     }
 
     private void openDocument(org.dirchat.document.DocumentLoader.LoadedDocument doc) {
-        setMessageBar("Opening document: " + doc.fileName);
-        // TODO: Add actual document opening logic here, e.g. open file at doc.absolutePath
+        setMessageBar(messages.getString("status.openingDocument").replace("{0}", doc.fileName));
         if (Desktop.isDesktopSupported())
         {
             try{
                 Desktop.getDesktop().open(new File(doc.absolutePath));
-                LogMessages.log("Opened document: " + doc.fileName);
+                LogMessages.log(messages.getString("status.openedDocument").replace("{0}", doc.fileName));
             }catch(Exception ex){
-                LogMessages.log("Failed to open document: " + ex.getMessage());
+                LogMessages.log(messages.getString("status.failedToOpenDocument").replace("{0}", ex.getMessage()));
             }
         }
         setMessageBar("");
@@ -280,17 +279,17 @@ public class UIController {
         if (indexLoadedIndicator == null) return;
         switch (status) {
             case LOADED:
-                indexLoadedIndicator.setText("✅");
+                indexLoadedIndicator.setText(messages.getString("indicator.loaded"));
                 indexLoadedIndicator.setStyle("-fx-font-size: 18; -fx-text-fill: green;");
                 indexLoadedIndicator.setVisible(true);
                 break;
             case FAILED:
-                indexLoadedIndicator.setText("❌");
+                indexLoadedIndicator.setText(messages.getString("indicator.failed"));
                 indexLoadedIndicator.setStyle("-fx-font-size: 18; -fx-text-fill: red;");
                 indexLoadedIndicator.setVisible(true);
                 break;
             case NOT_SELECTED:
-                indexLoadedIndicator.setText("❓");
+                indexLoadedIndicator.setText(messages.getString("indicator.notSelected"));
                 indexLoadedIndicator.setStyle("-fx-font-size: 18; -fx-text-fill: orange;");
                 indexLoadedIndicator.setVisible(true);
                 break;

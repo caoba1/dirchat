@@ -39,7 +39,7 @@
                     <ComboBox fx:id="filterComboBox" promptText="Filter by score" focusTraversable="true" />
                 </HBox>
                 <ListView fx:id="indexStatusList" prefWidth="220" focusTraversable="true" />
-            </VBox>
+            </VBox> <!-- Second box in SplitPane is the right hand side -->
             <VBox spacing="10" style="-fx-padding: 20;">
                 <VBox spacing="10">
                     <HBox spacing="10" alignment="TOP_LEFT" HBox.hgrow="ALWAYS">
@@ -49,7 +49,9 @@
                                 <Tooltip fx:id="loadFolderTooltip" />
                             </tooltip>
                         </Button>
-                        <Label fx:id="folderLabel" />
+                        <VBox alignment="CENTER_LEFT">
+                            <Label fx:id="folderLabel" />
+                        </VBox>
                     </HBox>
                 </VBox>
                 <VBox spacing="10"> <!-- Adding vBox to the definition here, fills the rest in vgrow of the parent -->
@@ -59,12 +61,15 @@
                                   promptText="Type your question here..."
                                   wrapText="true"
                                   HBox.hgrow="ALWAYS"
-                                  focusTraversable="true" />
-                        <Button fx:id="askButton" focusTraversable="true">
-                            <tooltip>
-                                <Tooltip fx:id="askButtonTooltip" />
-                            </tooltip>
-                        </Button>
+                                  focusTraversable="true"
+                                  prefRowCount="2"/>
+                        <VBox alignment="CENTER_LEFT">
+                            <Button fx:id="askButton" focusTraversable="true">
+                                <tooltip>
+                                    <Tooltip fx:id="askButtonTooltip" />
+                                </tooltip>
+                            </Button>
+                        </VBox>
                     </HBox>
                 </VBox>
                 <VBox spacing="10" VBox.vgrow="ALWAYS">
@@ -72,11 +77,13 @@
                               prefHeight="120"
                               VBox.vgrow="ALWAYS"
                               focusTraversable="true" />
-                    <Button fx:id="exportChatButton" focusTraversable="true">
-                        <tooltip>
-                            <Tooltip fx:id="exportChatTooltip" />
-                        </tooltip>
-                    </Button>
+                    <HBox alignment="TOP_RIGHT">
+                        <Button fx:id="exportChatButton" focusTraversable="true">
+                            <tooltip>
+                                <Tooltip fx:id="exportChatTooltip" />
+                            </tooltip>
+                        </Button>
+                    </HBox>
                 </VBox>
             </VBox>
         </SplitPane>
