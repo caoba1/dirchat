@@ -1,10 +1,10 @@
-# A directory chat application written in Java
 <p align="left">
-  <img src="src/main/resources/icons/dirchat-logo-full.png" alt="dirchat full logo" height="100">
+  <img src="src/main/resources/icons/dirchat-logo-full.png" alt="dirchat full logo" height="80">
 </p>
 
+# A directory chat application written in Java
 
-A desktop application using JavaFX for question answering over local documents using Apache Tika, LangChain4j, and JavaFX. 
+A desktop application for question answering over local documents using Apache Tika, LangChain4j, and JavaFX. 
 
 The current application implements SemanticSearch and Retrieval-Augmented Generation (RAG) using embeddings and a local LLM via [Ollama](https://ollama.com/). Please fell free to message me or do a pull request if you want to contibute adding image-to-text or pdf-to-markup or other featurs which can contribute to the indexing process. 
 
