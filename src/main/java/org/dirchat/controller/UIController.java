@@ -66,15 +66,30 @@ public class UIController {
 
     @FXML
     public void initialize() {
+        // Initial UI setup - arranged for clarity
         loadFolderButton.setText(messages.getString("button.loadFolder"));
-        askButton.setText(messages.getString("button.ask"));
+        loadFolderButton.setTooltip(new Tooltip(messages.getString("tooltip.loadFolder"))); // change to button.loadFolder.tooltip
+        loadFolderButton.setOnAction(e -> handleLoadFolder());
         folderLabel.setText(messages.getString("label.noFolderSelected"));
+
         questionField.setPromptText(messages.getString("prompt.typeQuestion"));
-        loadFolderButton.setTooltip(new Tooltip(messages.getString("tooltip.loadFolder")));
-        askButton.setTooltip(new Tooltip(messages.getString("tooltip.ask")));
-        exportChatButton.setTooltip(new Tooltip(messages.getString("tooltip.exportChat")));
+        askButton.setText(messages.getString("button.ask"));
+        askButton.setTooltip(new Tooltip(messages.getString("tooltip.ask"))); // change to button.ask.tooltip
+        askButton.setOnAction(e -> handleAskQuestion());
+
+        exportChatButton.setTooltip(new Tooltip(messages.getString("tooltip.exportChat"))); // change to button.exportChat.tooltip
+        exportChatButton.setText(messages.getString("button.exportChat"));
+        exportChatButton.setOnAction(e -> exportChatHistory());
+
         configButton.setText(messages.getString("button.config"));
         configButton.setTooltip(new Tooltip(messages.getString("tooltip.config")));
+        configButton.setOnAction(e -> {
+            ConfigDialog configDialog = new ConfigDialog((Stage) mainBorderPane.getScene().getWindow());
+            configDialog.showAndWait();
+            updateOutputModeIndicator();
+        });
+        updateOutputModeIndicator();
+
         // Localized sort options
         sortComboBox.getItems().addAll(
             messages.getString("sort.name"),
@@ -83,6 +98,7 @@ public class UIController {
         );
         sortComboBox.setPromptText(messages.getString("prompt.sortBy"));
         sortComboBox.setOnAction(e -> applySortAndFilter());
+
         // Localized filter options
         filterComboBox.getItems().addAll(
             messages.getString("filter.all"),
@@ -92,15 +108,15 @@ public class UIController {
         );
         filterComboBox.setPromptText(messages.getString("prompt.filterByScore"));
         filterComboBox.setOnAction(e -> applySortAndFilter());
-        // Export chat
-        exportChatButton.setOnAction(e -> exportChatHistory());
+
+
         // Custom cell factory for indexStatusList (highlight selection)
         indexStatusList.setCellFactory(listView -> new ListCell<>() {
-            private final Button openButton = new Button(messages.getString("button.open"));
+            private final Button openButton = new Button(messages.getString("button.openFile"));
             private final Label scoreLabel = new Label();
             private final HBox hbox = new HBox(8);
             {
-                openButton.setTooltip(new Tooltip(messages.getString("tooltip.openFile")));
+                openButton.setTooltip(new Tooltip(messages.getString("button.openFile.tooltip")));
                 openButton.setOnAction(e -> {
                     org.dirchat.document.DocumentLoader.LoadedDocument doc = getItem();
                     if (doc != null) {

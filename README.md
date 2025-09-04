@@ -6,6 +6,30 @@
 
 A desktop application using JavaFX for question answering over local documents using Apache Tika, LangChain4j, and JavaFX. 
 
+The current application implements SemanticSearch and Retrieval-Augmented Generation (RAG) using embeddings and a local LLM via [Ollama](https://ollama.com/). Please fell free to message me or do a pull request if you want to contibute adding image-to-text or pdf-to-markup or other featurs which can contribute to the indexing process. 
+
+Indexing and retrieval methods are still in evaluatory phase. 
+
+For the time being, the application supports `.pdf`, `.docx`, and `.txt` files. More file types should be added in the future.
+
+## Motivation
+Current open source implmentations for searching in directories lack support for semantic search and RAG generation in an open and straightforward way.  I also needed a fast alternative to catfish and recoll for searching and retrieving relevant files in a large document dataset.
+
+## Evaluation
+For testing and improving the semantic search semantic and the RAG process, I am using [tinyllama](https://ollama.com/models/tinyllama) as the embedding model. 
+The following models have been tested: 
+- For the embedding model:
+  - `SBERT`
+  - `tynillama`
+- For LLM retrieval and answer generation:
+  - `tynillama`
+  - `mistral`
+
+## Indexing
+For indexing each of the folders, the text on each document is extracted, embeddings are generated on overlapping pieces of information, and stored in a local SQLite database. The index is stored in a subdirectory of the selected folder.
+The indexing process may take some time depending on the number and size of the documents. Currently, embeddings are extracted based on a group of paragraphs. **This is a crucial step to improve for day-to-day use.**
+
+
 ## Features - What it does
 - Select a folder with documents (`.pdf`, `.docx`, `.txt`)
 - Extracts text from documents using Apache Tika
@@ -14,6 +38,7 @@ A desktop application using JavaFX for question answering over local documents u
 - Displays answers with references to the original document
 
 ## Architecture
+I am using a modular Java approach with the following main components:
 - **UIController**: Handles threading and UI updates.
 - **ChatService**: Handles user queries and LLM responses
 - **DocumentLoader**: Loads and parses documents via Apache Tika
