@@ -27,7 +27,9 @@
             </ImageView>
             <Label fx:id="welcomeLabel" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-padding: 10 0 10 0;" />
             <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="configButton" style="-fx-font-size: 14; -fx-padding: 4 12;" />
+            <VBox alignment="CENTER">
+                <Button fx:id="configButton" style="-fx-font-size: 14; -fx-padding: 4 12;" />
+            </VBox>
         </HBox>
     </top>
     <center>

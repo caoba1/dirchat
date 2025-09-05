@@ -28,12 +28,19 @@ public class DocumentLoader {
         public final String content;
         public final Metadata metadata;
         public final String absolutePath;
+        private boolean indexed = false; // Whether this document has been indexed
         public LoadedDocument(int documentId, String fileName, String content, Metadata metadata, String absolutePath) {
             this.documentId = documentId;
             this.fileName = fileName;
             this.content = content;
             this.metadata = metadata;
             this.absolutePath = absolutePath;
+        }
+        public void setIntexed(boolean indexed) {
+            this.indexed = indexed;
+        }
+        public boolean isIndexed() {
+            return indexed;
         }
     }
 

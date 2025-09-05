@@ -694,4 +694,43 @@ public class VectorStore {
 
     All tables are created in initSqliteDb(), which is called during VectorStore construction or when saving to SQLite and the table does not exist.
     */
+
+    public void runIndexing() throws SQLException, IOException
+    {
+        initSqliteDb();
+        setIndexingMethod("sbert"); // Ensure embedding method is set in settings table
+        for (int i = 0; i < documents.size(); i++) {
+            DocumentLoader.LoadedDocument doc = documents.get(i);
+            String docFileName = doc.fileName;
+            List<Chunk> docChunks = allDocChunks.get(i);
+            Map<Chunk, List<Double>> docEmbeddings = new java.util.HashMap<>();
+            for (Chunk chunk : docChunks) {
+                if (embeddings.containsKey(chunk)) {
+                    docEmbeddings.put(chunk, embeddings.get(chunk));
+                }
+            }
+            // Always use SQLite
+            store.saveDocumentEmbeddingsToSqlite(docFileName, docEmbeddings);
+            System.out.println("✅ Stored embeddings for " + docFileName + " in SQLite vector store.");
+        }
+        // Check if index does not exist for the selected folder
+        // Load the documentLoader
+        // For each document in the documentLoader load the document
+        // Chunk the document "Preparing document"
+        // Embed the chunks in a thread pool with progress bar
+
+
+        // Save the document metadata to the index (file-based or SQLite)
+        // Save the embeddings to the index (file-based or SQLite)
+        // Save the document metadata to the index (SQLite)
+        // Save the index properties to the index (SQLite)
+        // Update progress bar after each document is processed
+
+        // Else
+        // Load the documentLoader first saved in createIndex()
+        // Also, if index is created load the documentLoader first and check which documents are missing from the index
+        // And throw exception if documents are missing
+
+
+    }
 }

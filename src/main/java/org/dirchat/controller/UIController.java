@@ -171,6 +171,7 @@ public class UIController {
         if (selectedFolderFile != null) {
             selectedFolder = selectedFolderFile.getAbsolutePath();
             vectorStore = new VectorStore(selectedFolder);
+            // Todo: Move inside vectorStore and handle errors there
             java.io.File indexDbFile = new java.io.File(selectedFolder + "/.dirchat/vectorstore.db");
             boolean indexExists = indexDbFile.exists() && indexDbFile.length() > 0;
             if (!indexExists) {
@@ -187,23 +188,31 @@ public class UIController {
                     return;
                 }
             }
-            LogMessages.log(messages.getString("LOADING_FOLDER").replace("{0}", selectedFolder));
+            LogMessages.log(messages.getString("LOADING_FOLDER").replace("{0}", selectedFolder)); //Todo: all instanstes should be either logWarning or logError
             setMessageBar(messages.getString("LOADING_FOLDER").replace("{0}", selectedFolder));
             folderLabel.setText(messages.getString("label.selectedFolder") + ": " + selectedFolder);
             mainBorderPane.setCursor(Cursor.WAIT);
             ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), messages.getString("progress.indexingDocuments"));
             progressDialog.show();
 
+
             javafx.concurrent.Task<Void> loadTask = new javafx.concurrent.Task<>() {
                 @Override
                 protected Void call() {
                     try {
+                        vectorStore.runIndexing();
+
+                        // Todo: move inside vectorStore and handle errors there
                         loadedDocuments = documentLoader.loadDocumentsFromFolder(selectedFolder);
+                        // Todo: set item one by one and update status
                         Platform.runLater(() -> setIndexStatusListItems(loadedDocuments));
+                        // Initialize embedding Service
                         EmbeddingService embeddingService = new EmbeddingService();
-                        TextChunker textChunker = new TextChunker(6);
-                        int totalDocs = loadedDocuments.size();
+                        // Initialize TextChunker
+                        TextChunker textChunker = new TextChunker(3); // 3 paragraphs per chunk
+                        int totalDocs = loadedDocuments.size(); // Todo: store in vectorStore?
                         for (int docIdx = 0; docIdx < totalDocs; docIdx++) {
+
                             org.dirchat.document.DocumentLoader.LoadedDocument doc = loadedDocuments.get(docIdx);
                             final int currentDocIdx = docIdx;
                             List<Chunk> chunks = textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
@@ -224,6 +233,7 @@ public class UIController {
                             updateIndexLoadedIndicator(IndexStatus.LOADED);
                             setMessageBar("Index loaded successfully!");
                             askButton.setDisable(false); // Enable after folder is loaded
+
                         });
                     } catch (Exception ex) {
                         LogMessages.logWarning(ex.getMessage());
@@ -237,6 +247,8 @@ public class UIController {
                     return null;
                 }
             };
+            // Todo: Concurrency JUST for each of the embedding tasks
+
             new Thread(loadTask).start();
         }
     }
