@@ -17,7 +17,7 @@ import java.util.List;
 
 public class DocumentLoader {
 
-    private final Tika tika = new Tika();
+    private final Tika tika = new Tika(); //Todo: are we using Tika or other stuff?
     // Allows the UI to register a callback for message bar updates.
     // This decouples backend logic from the UI, so DocumentLoader can notify the user without knowing about UI classes.
     private static java.util.function.Consumer<String> messageBarSetter;
@@ -26,15 +26,17 @@ public class DocumentLoader {
         public final int documentId;
         public final String fileName;
         public final String content;
-        public final Metadata metadata;
+        public Metadata metadata; // Now mutable
         public final String absolutePath;
         private boolean indexed = false; // Whether this document has been indexed
-        public LoadedDocument(int documentId, String fileName, String content, Metadata metadata, String absolutePath) {
+        public LoadedDocument(int documentId, String fileName, String content, String absolutePath) {
             this.documentId = documentId;
             this.fileName = fileName;
             this.content = content;
-            this.metadata = metadata;
             this.absolutePath = absolutePath;
+        }
+        public void setMetadata(Metadata metadata) {
+            this.metadata = metadata;
         }
         public void setIntexed(boolean indexed) {
             this.indexed = indexed;
@@ -61,7 +63,8 @@ public class DocumentLoader {
                     Metadata metadata = new Metadata();
                     String content = parseDocumentWithMetadata(file, metadata);
                     int documentId = file.getAbsolutePath().hashCode();
-                    documents.add(new LoadedDocument(documentId, file.getName(), content, metadata, file.getAbsolutePath()));
+                    documents.add(new LoadedDocument(documentId, file.getName(), content, file.getAbsolutePath()));
+                    documents.get(documents.size() - 1).setMetadata(metadata); // Set metadata after document creation
                     String msg = "Loaded document: " + file.getName();
                     LogMessages.log(msg);
                 } catch (org.dirchat.util.SqliteErrorException se) {
@@ -83,7 +86,7 @@ public class DocumentLoader {
     }
 
     /** Available supported files **/
-    private boolean isSupported(File file) {
+    public static boolean isSupported(File file) {
         String name = file.getName().toLowerCase();
         return name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".txt");
     }

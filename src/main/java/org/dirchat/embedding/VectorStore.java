@@ -378,6 +378,47 @@ public class VectorStore {
         }
     }
 
+    public boolean indexExists() {
+        File dbFile = new File(sqliteDbPath);
+        return dbFile.exists() && dbFile.length() > 0;
+    }
+
+    public List<DocumentLoader.LoadedDocument> loadIndexing() throws IOException {
+        List<DocumentLoader.LoadedDocument> loadedDocs = new ArrayList<>();
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            String sql = "SELECT id, filename, location, number_pages, filetype, metadata FROM table_document";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    int documentId = rs.getInt("id");
+                    String filename = rs.getString("filename");
+                    String location = rs.getString("location");
+                    int numberPages = rs.getInt("number_pages");
+                    String filetype = rs.getString("filetype");
+                    String metadataJson = rs.getString("metadata");
+                    // Load content and absolutePath (assuming location is the path)
+                    String absolutePath = location;
+                    String content = "";
+                    org.apache.tika.metadata.Metadata metadata = new org.apache.tika.metadata.Metadata();
+                    try {
+                        content = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(location)));
+                        // Extract metadata using Tika
+                        org.apache.tika.parser.AutoDetectParser parser = new org.apache.tika.parser.AutoDetectParser();
+                        org.apache.tika.sax.BodyContentHandler handler = new org.apache.tika.sax.BodyContentHandler(-1);
+                        try (java.io.FileInputStream stream = new java.io.FileInputStream(location)) {
+                            parser.parse(stream, handler, metadata);
+                        }
+                    } catch (Exception ignore) {}
+                    DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(documentId, filename, content, absolutePath);
+                    doc.setMetadata(metadata);
+                    loadedDocs.add(doc);
+                }
+            }
+        } catch (Exception e) {
+            throw new IOException("Failed to load indexed documents from SQLite: " + e.getMessage(), e);
+        }
+        return loadedDocs;
+    }
+
 
     // Returns the file path for a document's index (file-based)
     public String getIndexPath(String docFileName) {
@@ -433,10 +474,11 @@ public class VectorStore {
     }
 
     // Save embeddings for a document (SQLite)
-    public void saveDocumentEmbeddingsToSqlite(String docFileName, Map<Chunk, List<Double>> embeddings) throws SQLException, IOException {
+    public void saveDocumentEmbeddingsToSqlite(DocumentLoader.LoadedDocument loadedDocument, Map<Chunk, List<Double>> chunkEmbeddings) throws SQLException, IOException {
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
-            String sql = "INSERT OR REPLACE INTO vectors (chunk_id, vector, metadata) VALUES (?, ?, ?)";
-            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            String sqlDocument = "INSERT OR REPLACE INTO table_document (id, filename, location, number_pages, filetype, toc, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String sqlEmbedding = "INSERT OR REPLACE INTO table_chunk (id, document_id, chunk_index, page_number, cursor_pointer, embedding_vector, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sqlDocument)) {
                 ObjectMapper mapper = new ObjectMapper();
                 for (Map.Entry<Chunk, List<Double>> entry : embeddings.entrySet()) {
                     pstmt.setString(1, entry.getKey().toStorageString());
@@ -489,6 +531,7 @@ public class VectorStore {
      * Indexes all documents in a folder: loads, chunks, embeds, and saves vectors for each document.
      * Handles both file-based and SQLite storage.
      */
+    // TODO: REMOVE?
     public void createIndex(String folderPath, EmbeddingService embeddingService, java.util.function.BiConsumer<String, Double> progressCallback) {
         try {
             if (progressCallback != null) progressCallback.accept("Starting indexing for folder: " + folderPath, 0.0);
@@ -695,42 +738,25 @@ public class VectorStore {
     All tables are created in initSqliteDb(), which is called during VectorStore construction or when saving to SQLite and the table does not exist.
     */
 
-    public void runIndexing() throws SQLException, IOException
-    {
+    public void runIndexing(EmbeddingService embeddingService) throws SQLException, IOException {
+        // Initialize SQLite DB and set embedding method
         initSqliteDb();
         setIndexingMethod("sbert"); // Ensure embedding method is set in settings table
-        for (int i = 0; i < documents.size(); i++) {
-            DocumentLoader.LoadedDocument doc = documents.get(i);
+
+        // Get the folder path from the SQLite DB path
+        String folderPath = Path.of(sqliteDbPath).getParent().getParent().toString();
+        DocumentLoader loader = new DocumentLoader();
+        List<DocumentLoader.LoadedDocument> documents = loader.loadDocumentsFromFolder(folderPath);
+
+        for (DocumentLoader.LoadedDocument doc : documents) {
             String docFileName = doc.fileName;
-            List<Chunk> docChunks = allDocChunks.get(i);
-            Map<Chunk, List<Double>> docEmbeddings = new java.util.HashMap<>();
-            for (Chunk chunk : docChunks) {
-                if (embeddings.containsKey(chunk)) {
-                    docEmbeddings.put(chunk, embeddings.get(chunk));
-                }
-            }
-            // Always use SQLite
-            store.saveDocumentEmbeddingsToSqlite(docFileName, docEmbeddings);
+            // Chunk the document
+            List<Chunk> docChunks = embeddingService.textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
+            // Embed the chunks
+            Map<Chunk, List<Double>> docEmbeddings = embeddingService.embedChunks(docChunks, null);
+            // Store embeddings in SQLite
+            saveDocumentEmbeddingsToSqlite(docFileName, docEmbeddings);
             System.out.println("✅ Stored embeddings for " + docFileName + " in SQLite vector store.");
         }
-        // Check if index does not exist for the selected folder
-        // Load the documentLoader
-        // For each document in the documentLoader load the document
-        // Chunk the document "Preparing document"
-        // Embed the chunks in a thread pool with progress bar
-
-
-        // Save the document metadata to the index (file-based or SQLite)
-        // Save the embeddings to the index (file-based or SQLite)
-        // Save the document metadata to the index (SQLite)
-        // Save the index properties to the index (SQLite)
-        // Update progress bar after each document is processed
-
-        // Else
-        // Load the documentLoader first saved in createIndex()
-        // Also, if index is created load the documentLoader first and check which documents are missing from the index
-        // And throw exception if documents are missing
-
-
     }
 }

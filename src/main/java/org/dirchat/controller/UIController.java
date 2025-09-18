@@ -26,7 +26,9 @@ import java.awt.*;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.ResourceBundle;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class UIController {
     private final DocumentLoader documentLoader = new DocumentLoader();
@@ -166,91 +168,130 @@ public class UIController {
 
     private void handleLoadFolder() {
         DirectoryChooser chooser = new DirectoryChooser();
-        chooser.setTitle(messages.getString("button.loadFolder"));
-        File selectedFolderFile = chooser.showDialog(new Stage());
-        if (selectedFolderFile != null) {
-            selectedFolder = selectedFolderFile.getAbsolutePath();
-            vectorStore = new VectorStore(selectedFolder);
-            // Todo: Move inside vectorStore and handle errors there
-            java.io.File indexDbFile = new java.io.File(selectedFolder + "/.dirchat/vectorstore.db");
-            boolean indexExists = indexDbFile.exists() && indexDbFile.length() > 0;
-            if (!indexExists) {
-                javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
-                alert.setTitle(messages.getString("dialog.noIndex.title"));
-                alert.setHeaderText(null);
-                alert.setContentText(messages.getString("dialog.noIndex.content"));
-                javafx.scene.control.ButtonType yesBtn = new javafx.scene.control.ButtonType(messages.getString("dialog.noIndex.yes"), javafx.scene.control.ButtonBar.ButtonData.YES);
-                javafx.scene.control.ButtonType cancelBtn = new javafx.scene.control.ButtonType(messages.getString("dialog.noIndex.cancel"), javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
-                alert.getButtonTypes().setAll(yesBtn, cancelBtn);
-                javafx.scene.control.ButtonType result = alert.showAndWait().orElse(cancelBtn);
-                if (result != yesBtn) {
-                    setMessageBar(messages.getString("status.folderLoadCancelled"));
-                    return;
-                }
-            }
-            LogMessages.log(messages.getString("LOADING_FOLDER").replace("{0}", selectedFolder)); //Todo: all instanstes should be either logWarning or logError
-            setMessageBar(messages.getString("LOADING_FOLDER").replace("{0}", selectedFolder));
-            folderLabel.setText(messages.getString("label.selectedFolder") + ": " + selectedFolder);
-            mainBorderPane.setCursor(Cursor.WAIT);
-            ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), messages.getString("progress.indexingDocuments"));
-            progressDialog.show();
-
-
-            javafx.concurrent.Task<Void> loadTask = new javafx.concurrent.Task<>() {
-                @Override
-                protected Void call() {
-                    try {
-                        vectorStore.runIndexing();
-
-                        // Todo: move inside vectorStore and handle errors there
-                        loadedDocuments = documentLoader.loadDocumentsFromFolder(selectedFolder);
-                        // Todo: set item one by one and update status
-                        Platform.runLater(() -> setIndexStatusListItems(loadedDocuments));
-                        // Initialize embedding Service
-                        EmbeddingService embeddingService = new EmbeddingService();
-                        // Initialize TextChunker
-                        TextChunker textChunker = new TextChunker(3); // 3 paragraphs per chunk
-                        int totalDocs = loadedDocuments.size(); // Todo: store in vectorStore?
-                        for (int docIdx = 0; docIdx < totalDocs; docIdx++) {
-
-                            org.dirchat.document.DocumentLoader.LoadedDocument doc = loadedDocuments.get(docIdx);
-                            final int currentDocIdx = docIdx;
-                            List<Chunk> chunks = textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
-                            embeddingService.embedChunks(chunks, (message, progress) -> {
-                                double docProgress = progress; // Per-file progress only
-                                double overallProgress = ((double) currentDocIdx + progress) / totalDocs;
-                                Platform.runLater(() -> {
-                                    progressDialog.setMessage(message);
-                                    progressDialog.setFileName("Indexing: " + doc.fileName);
-                                    progressDialog.setFileProgress(docProgress);
-                                    progressDialog.setProgress(overallProgress); // Only overall progress in main bar
-                                });
-                            });
-                        }
-                        Platform.runLater(() -> {
-                            progressDialog.close();
-                            mainBorderPane.setCursor(Cursor.DEFAULT);
-                            updateIndexLoadedIndicator(IndexStatus.LOADED);
-                            setMessageBar("Index loaded successfully!");
-                            askButton.setDisable(false); // Enable after folder is loaded
-
-                        });
-                    } catch (Exception ex) {
-                        LogMessages.logWarning(ex.getMessage());
-                        Platform.runLater(() -> {
-                            progressDialog.close();
-                            mainBorderPane.setCursor(Cursor.DEFAULT);
-                            updateIndexLoadedIndicator(IndexStatus.FAILED);
-                            setMessageBar("Error loading folder: " + ex.getMessage(), "red");
-                        });
-                    }
-                    return null;
-                }
-            };
-            // Todo: Concurrency JUST for each of the embedding tasks
-
-            new Thread(loadTask).start();
+        chooser.setTitle(messages.getString("dialog.selectFolder.title"));
+        File folder = chooser.showDialog(mainBorderPane.getScene().getWindow());
+        if (folder == null) {
+            setMessageBar(messages.getString("status.folderLoadCancelled"));
+            return;
         }
+        selectedFolder = folder.getAbsolutePath();
+        vectorStore = new VectorStore(selectedFolder);
+        java.io.File indexDbFile = new java.io.File(selectedFolder + "/.dirchat/vectorstore.db");
+        ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), messages.getString("progress.indexingDocuments"));
+        progressDialog.show();
+        mainBorderPane.setCursor(Cursor.WAIT);
+        javafx.concurrent.Task<Void> loadTask = new javafx.concurrent.Task<>() {
+            @Override
+            protected Void call() {
+                try {
+                    List<DocumentLoader.LoadedDocument> docs = new java.util.ArrayList<>();
+                    LogMessages.log("[Indexing] Task started");
+                    if (vectorStore.indexExists()) {
+                        LogMessages.log("[Indexing] Index exists, loading from DB");
+                        docs = vectorStore.loadIndexing();
+                        updateMessage(messages.getString("status.indexLoaded"));
+                    } else {
+                        LogMessages.log("[Indexing] Index does not exist, processing files");
+                        org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
+                        File[] files = folder.listFiles();
+                        final int total = files != null ? files.length : 0;
+                        AtomicInteger count = new AtomicInteger(0);
+                        EmbeddingService embeddingService = new EmbeddingService();
+                        for (File file : files) {
+                            if (progressDialog.isCancelled() || isCancelled()) {
+                                LogMessages.log("[Indexing] Cancelled by user (file loop)");
+                                updateMessage(messages.getString("status.folderLoadCancelled"));
+                                break;
+                            }
+                            if (file.isFile() && DocumentLoader.isSupported(file)) {
+                                count.incrementAndGet();
+                                LogMessages.log("[Indexing] Processing file: " + file.getName());
+                                updateMessage(messages.getString("progress.loadingFile").replace("{0}", file.getName()));
+                                Platform.runLater(() -> {
+                                    progressDialog.setFileName(file.getName());
+                                    progressDialog.setProgress((double) count.get() / total);
+                                });
+                                org.apache.tika.metadata.Metadata metadata = new org.apache.tika.metadata.Metadata();
+                                String content = "";
+                                try {
+                                    content = new String(java.nio.file.Files.readAllBytes(file.toPath()));
+                                    org.apache.tika.parser.AutoDetectParser parser = new org.apache.tika.parser.AutoDetectParser();
+                                    org.apache.tika.sax.BodyContentHandler handler = new org.apache.tika.sax.BodyContentHandler(-1);
+                                    try (java.io.FileInputStream stream = new java.io.FileInputStream(file)) {
+                                        parser.parse(stream, handler, metadata);
+                                    }
+                                } catch (Exception ex) {
+                                    LogMessages.logWarning("[Indexing] Error reading file: " + file.getName() + " - " + ex.getMessage());
+                                }
+                                int documentId = file.getAbsolutePath().hashCode();
+                                DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(documentId, file.getName(), content, file.getAbsolutePath());
+                                doc.setMetadata(metadata);
+                                // Chunk and embed
+                                List<Chunk> docChunks = embeddingService.textChunker.chunkText(content, file.getName(), documentId);
+                                Map<Chunk, List<Double>> docEmbeddings = new java.util.HashMap<>();
+                                final int chunkCount = docChunks.size();
+                                AtomicInteger chunkIdx = new AtomicInteger(0);
+                                for (Chunk chunk : docChunks) {
+                                    if (progressDialog.isCancelled() || isCancelled()) {
+                                        LogMessages.log("[Indexing] Cancelled by user (chunk loop)");
+                                        updateMessage(messages.getString("status.folderLoadCancelled"));
+                                        break;
+                                    }
+                                    LogMessages.log("[Indexing] Embedding chunk " + chunkIdx.get() + "/" + chunkCount + " for file: " + file.getName());
+                                    List<Double> embedding = embeddingService.embedChunk(chunk, selectedFolder, file.getName());
+                                    docEmbeddings.put(chunk, embedding);
+                                    chunkIdx.incrementAndGet();
+                                    Platform.runLater(() -> progressDialog.setFileProgress((double) chunkIdx.get() / chunkCount));
+                                    if (progressDialog.isCancelled() || isCancelled()) {
+                                        LogMessages.log("[Indexing] Cancelled by user (after embedding chunk)");
+                                        updateMessage(messages.getString("status.folderLoadCancelled"));
+                                        break;
+                                    }
+                                }
+                                // Save embeddings to DB
+                                vectorStore.saveDocumentEmbeddingsToSqlite(file.getName(), docEmbeddings);
+                                docs.add(doc);
+                                Platform.runLater(() -> progressDialog.setFileProgress(0)); // Reset chunk progress bar
+                            }
+                        }
+                        updateMessage(messages.getString("status.indexLoaded"));
+                    }
+                    loadedDocuments = docs;
+                    LogMessages.log("[Indexing] Task completed");
+                } catch (Exception e) {
+                    if (e instanceof java.net.ConnectException ||
+                    e.getCause() instanceof java.net.ConnectException) {
+                        LogMessages.logWarning("[Indexing] Connection error: " + e.getMessage());
+                        //updateMessage(messages.getString("error.connectionError") + ": " + e.getMessage());
+                        updateIndexLoadedIndicator(IndexStatus.FAILED);
+                    } else {
+                        LogMessages.logWarning("[Indexing] Exception: " + e.getMessage());
+                        //updateMessage(messages.getString("status.folderLoadError") + ": " + e.getMessage());
+                    }
+                    this.cancel(); // TODO -> Override call(), succeded() and call cancel() on failed.
+                }
+                return null;
+            }
+        };
+        loadTask.setOnSucceeded(e -> {
+            Platform.runLater(() -> {
+                progressDialog.close();
+                mainBorderPane.setCursor(Cursor.DEFAULT);
+                folderLabel.setText(messages.getString("label.selectedFolder") + ": " + selectedFolder);
+                setMessageBar(messages.getString("status.indexLoaded"));
+                indexStatusList.getItems().setAll(loadedDocuments);
+                askButton.setDisable(false);
+            });
+        });
+        loadTask.setOnCancelled(e -> {
+            Platform.runLater(() -> {
+                progressDialog.close();
+                mainBorderPane.setCursor(Cursor.DEFAULT);
+                setMessageBar(messages.getString("status.folderLoadCancelled"));
+            });
+        });
+
+        new Thread(loadTask).start();
     }
 
     private void handleAskQuestion() {

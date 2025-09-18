@@ -26,10 +26,12 @@ public class DocumentMetadata {
 
     @Override
     public String toString() {
-        return "DocumentMetadata{" +
+        return "DocumentMetadata [" +
                 "fileName='" + fileName + '\'' +
                 ", pageNumber=" + pageNumber +
                 ", chunkIndex=" + chunkIndex +
-                '}';
+                "]";
     }
+
+
 }

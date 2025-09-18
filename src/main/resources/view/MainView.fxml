@@ -91,6 +91,10 @@
         </SplitPane>
     </center>
     <bottom>
-        <Label fx:id="messageBar" style="-fx-padding: 8; -fx-background-color: #eaf2fb; -fx-font-size: 13;" />
+        <HBox alignment="CENTER_LEFT" spacing="8">
+            <Label fx:id="messageBar" style="-fx-padding: 8; -fx-background-color: #eaf2fb; -fx-font-size: 13;" />
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="indexLoadedIndicator" style="-fx-padding: 8; -fx-background-color: #eaf2fb; -fx-font-size: 13;" />
+        </HBox>
     </bottom>
 </BorderPane>

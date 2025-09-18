@@ -1,4 +1,5 @@
 package org.dirchat.util;
+// TODO: Refactor
 
 import java.io.*;
 import java.util.Properties;

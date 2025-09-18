@@ -41,14 +41,16 @@ public class EmbeddingService {
 
 
     // Allows the UI to register a callback for message bar updates.
-    // This decouples backend logic from the UI, so EmbeddingService can notify the user without knowing about UI classes.
     private static java.util.function.Consumer<String> messageBarSetter;
     public static void setMessageBarSetter(java.util.function.Consumer<String> setter) {
         messageBarSetter = setter;
     }
+
+
     // Use this to send a message to the UI message bar (if registered)
     public void setMessageBar(String msg) {
-        if (messageBarSetter != null) messageBarSetter.accept(msg);
+        if (messageBarSetter != null)
+            messageBarSetter.accept(msg);
     }
 
 
@@ -85,7 +87,11 @@ public class EmbeddingService {
                 continue;
             }
             if ( !(chunk.getChunkType().equalsIgnoreCase("metadata") )) {
+
+                System.out.println("STARTING EMBEDING");
                 float[] vector = embeddingModel.embed(content).content().vector();
+                System.out.println("FINISHING EMBEDING");
+
                 List<Double> vectorList = floatArrayToDoubleList(vector);
                 embeddings.put(chunk, vectorList);
             }
