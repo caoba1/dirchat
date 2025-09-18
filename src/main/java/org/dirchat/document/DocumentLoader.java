@@ -44,6 +44,21 @@ public class DocumentLoader {
         public boolean isIndexed() {
             return indexed;
         }
+        public int getDocumentId() {
+            return documentId;
+        }
+        public String getFileName() {
+            return fileName;
+        }
+        public String getContent() {
+            return content;
+        }
+        public Metadata getMetadata() {
+            return metadata;
+        }
+        public String getAbsolutePath() {
+            return absolutePath;
+        }
     }
 
     public List<LoadedDocument> loadDocumentsFromFolder(String folderPath) {

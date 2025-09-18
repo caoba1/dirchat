@@ -477,16 +477,36 @@ public class VectorStore {
     public void saveDocumentEmbeddingsToSqlite(DocumentLoader.LoadedDocument loadedDocument, Map<Chunk, List<Double>> chunkEmbeddings) throws SQLException, IOException {
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
             String sqlDocument = "INSERT OR REPLACE INTO table_document (id, filename, location, number_pages, filetype, toc, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            String sqlEmbedding = "INSERT OR REPLACE INTO table_chunk (id, document_id, chunk_index, page_number, cursor_pointer, embedding_vector, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            try (PreparedStatement pstmt = conn.prepareStatement(sqlDocument)) {
+            try (PreparedStatement pstmtDoc = conn.prepareStatement(sqlDocument)) {
                 ObjectMapper mapper = new ObjectMapper();
-                for (Map.Entry<Chunk, List<Double>> entry : embeddings.entrySet()) {
-                    pstmt.setString(1, entry.getKey().toStorageString());
-                    pstmt.setString(2, mapper.writeValueAsString(entry.getValue()));
-                    pstmt.setString(3, mapper.writeValueAsString(entry.getKey())); // store only chunk metadata
-                    pstmt.addBatch();
+                pstmtDoc.setString(1, loadedDocument.getId());
+                pstmtDoc.setString(2, loadedDocument.getFilename());
+                pstmtDoc.setString(3, loadedDocument.getLocation());
+                pstmtDoc.setInt(4, loadedDocument.getNumberPages());
+                pstmtDoc.setString(5, loadedDocument.getFiletype());
+                pstmtDoc.setString(6, mapper.writeValueAsString(loadedDocument.getToc()));
+                pstmtDoc.setString(7, mapper.writeValueAsString(loadedDocument.getMetadata()));
+                pstmtDoc.executeUpdate();
+            }
+
+
+            // Insert chunk embeddings
+            String sqlEmbedding = "INSERT OR REPLACE INTO table_chunk (id, document_id, chunk_index, page_number, cursor_pointer, embedding_vector, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement pstmtChunk = conn.prepareStatement(sqlEmbedding)) {
+                ObjectMapper mapper = new ObjectMapper();
+                for (Map.Entry<Chunk, List<Double>> entry : chunkEmbeddings.entrySet()) {
+                    Chunk chunk = entry.getKey();
+                    List<Double> embedding = entry.getValue();
+                    pstmtChunk.setString(1, chunk.toStorageString());
+                    pstmtChunk.setString(2, loadedDocument.getId());
+                    pstmtChunk.setInt(3, chunk.getChunkIndex());
+                    pstmtChunk.setInt(4, chunk.getPageNumber());
+                    pstmtChunk.setInt(5, chunk.getCursorPointer());
+                    pstmtChunk.setString(6, mapper.writeValueAsString(embedding));
+                    pstmtChunk.setString(7, mapper.writeValueAsString(chunk.getMetadata()));
+                    pstmtChunk.addBatch();
                 }
-                pstmt.executeBatch();
+                pstmtChunk.executeBatch();
             }
         }
     }
