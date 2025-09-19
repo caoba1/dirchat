@@ -249,7 +249,7 @@ public class UIController {
                                     }
                                 }
                                 // Save embeddings to DB
-                                vectorStore.saveDocumentEmbeddingsToSqlite(file.getName(), docEmbeddings);
+                                vectorStore.saveDocumentEmbeddingsToSqlite(doc, docEmbeddings);
                                 docs.add(doc);
                                 Platform.runLater(() -> progressDialog.setFileProgress(0)); // Reset chunk progress bar
                             }

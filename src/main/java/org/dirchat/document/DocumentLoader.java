@@ -28,12 +28,15 @@ public class DocumentLoader {
         public final String content;
         public Metadata metadata; // Now mutable
         public final String absolutePath;
+        public String toc;
         private boolean indexed = false; // Whether this document has been indexed
         public LoadedDocument(int documentId, String fileName, String content, String absolutePath) {
             this.documentId = documentId;
             this.fileName = fileName;
             this.content = content;
             this.absolutePath = absolutePath;
+            this.toc = null;
+            this.metadata = new Metadata(); // Initialize with empty metadata
         }
         public void setMetadata(Metadata metadata) {
             this.metadata = metadata;
@@ -59,9 +62,26 @@ public class DocumentLoader {
         public String getAbsolutePath() {
             return absolutePath;
         }
+        public String getIdString(){
+            return String.valueOf(documentId);
+        }
+        public int getNumberPages(){
+            return documentId;
+        }
+        public String getFileType() {
+            int dotIndex = fileName.lastIndexOf('.');
+            if (dotIndex != -1 && dotIndex < fileName.length() - 1) {
+                return fileName.substring(dotIndex + 1);
+            }
+            return ""; // No extension found
+        }
+        public String getToc() {
+            return toc;
+        }
+
     }
 
-    public List<LoadedDocument> loadDocumentsFromFolder(String folderPath) {
+    public List<LoadedDocument> loadDocumentsFromFolder(String folderPath, org.dirchat.embedding.VectorStore vectorStore) {
         List<LoadedDocument> documents = new ArrayList<>();
         File folder = new File(folderPath);
 
@@ -78,8 +98,11 @@ public class DocumentLoader {
                     Metadata metadata = new Metadata();
                     String content = parseDocumentWithMetadata(file, metadata);
                     int documentId = file.getAbsolutePath().hashCode();
-                    documents.add(new LoadedDocument(documentId, file.getName(), content, file.getAbsolutePath()));
-                    documents.get(documents.size() - 1).setMetadata(metadata); // Set metadata after document creation
+                    LoadedDocument loadedDoc = new LoadedDocument(documentId, file.getName(), content, file.getAbsolutePath());
+                    loadedDoc.setMetadata(metadata); // Set metadata after document creation
+                    // Extract and save document metadata (including TOC) before embedding
+                    vectorStore.extractAndSaveDocumentMetadata(loadedDoc);
+                    documents.add(loadedDoc);
                     String msg = "Loaded document: " + file.getName();
                     LogMessages.log(msg);
                 } catch (org.dirchat.util.SqliteErrorException se) {
