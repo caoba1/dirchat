@@ -560,8 +560,10 @@ public class VectorStore {
     public void createIndex(String folderPath, EmbeddingService embeddingService, java.util.function.BiConsumer<String, Double> progressCallback) {
         try {
             if (progressCallback != null) progressCallback.accept("Starting indexing for folder: " + folderPath, 0.0);
-            org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
-            List<DocumentLoader.LoadedDocument> documents = loader.loadDocumentsFromFolder(folderPath, this);
+
+            org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader(folderPath);
+            List<DocumentLoader.LoadedDocument> documents = loader.loadDocumentListFromFolder(); //TODO
+
             int totalDocs = documents.size();
             for (int i = 0; i < totalDocs; i++) {
                 DocumentLoader.LoadedDocument doc = documents.get(i);
@@ -763,6 +765,7 @@ public class VectorStore {
     All tables are created in initSqliteDb(), which is called during VectorStore construction or when saving to SQLite and the table does not exist.
     */
 
+    // Main function to run indexing on a folder. Data is loaded by each document.
     public void runIndexing(EmbeddingService embeddingService) throws SQLException, IOException {
         // Initialize SQLite DB and set embedding method
         initSqliteDb();
@@ -770,18 +773,20 @@ public class VectorStore {
 
         // Get the folder path from the SQLite DB path
         String folderPath = Path.of(sqliteDbPath).getParent().getParent().toString();
-        DocumentLoader loader = new DocumentLoader();
-        List<DocumentLoader.LoadedDocument> documents = loader.loadDocumentsFromFolder(folderPath, this);
+
+        // TODO | VectorStore should not be responsible for loading documents
+        DocumentLoader loader = new DocumentLoader(folderPath);
+        List<DocumentLoader.LoadedDocument> documents = loader.loadDocumentListFromFolder();
 
         for (DocumentLoader.LoadedDocument doc : documents) {
             // Extract and save metadata (including TOC) before embedding
-            extractAndSaveDocumentMetadata(doc);
+            extractAndSaveDocumentMetadata(doc); // SAVE IN TABLE_DOCUMENT
             // Chunk the document
             List<Chunk> docChunks = embeddingService.textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
             // Embed the chunks
             Map<Chunk, List<Double>> docEmbeddings = embeddingService.embedChunks(docChunks, null);
             // Store embeddings in SQLite
-            saveDocumentEmbeddingsToSqlite(doc, docEmbeddings);
+            saveDocumentEmbeddingsToSqlite(doc, docEmbeddings); // SAVE IN TABLE_CHUNK
             System.out.println("✅ Stored embeddings for " + doc.getFileName() + " in SQLite vector store.");
         }
     }
@@ -790,7 +795,8 @@ public class VectorStore {
      * Loads documents from a folder and saves their metadata using this VectorStore instance.
      */
     public List<org.dirchat.document.DocumentLoader.LoadedDocument> loadDocumentsFromFolder(String folderPath) {
-        org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
+        org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader(folderPath);
+
         List<org.dirchat.document.DocumentLoader.LoadedDocument> documents = loader.loadDocumentsFromFolder(folderPath);
         for (org.dirchat.document.DocumentLoader.LoadedDocument doc : documents) {
             this.extractAndSaveDocumentMetadata(doc);

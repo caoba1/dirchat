@@ -19,7 +19,9 @@ public class UnifiedTest {
         // Step 1: Load documents
         final String folderPath = "C:/temp/TestDocs/"; // Update this path
         VectorStore store = new VectorStore(folderPath);
-        List<DocumentLoader.LoadedDocument> documents = store.loadDocumentsFromFolder(folderPath);
+
+        DocumentLoader documentLoader = new DocumentLoader(folderPath);
+        List<DocumentLoader.LoadedDocument> documents = documentLoader.loadDocumentListFromFolder();
         System.out.println("✅ Loaded " + documents.size() + " documents.");
 
         // Step 2: Chunk documents

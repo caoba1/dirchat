@@ -15,6 +15,7 @@ import org.dirchat.embedding.EmbeddingService;
 import org.dirchat.embedding.VectorStore;
 import org.dirchat.llm.ChatService;
 import org.dirchat.model.Chunk;
+import org.dirchat.util.Dirchat;
 import org.dirchat.util.LogMessages;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -31,7 +32,6 @@ import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class UIController {
-    private final DocumentLoader documentLoader = new DocumentLoader();
     @FXML
     private TextArea questionField;
     @FXML
@@ -166,6 +166,8 @@ public class UIController {
         }
     }
 
+
+    //TODO: Refactor to a leaner code.
     private void handleLoadFolder() {
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle(messages.getString("dialog.selectFolder.title"));
@@ -174,7 +176,7 @@ public class UIController {
             setMessageBar(messages.getString("status.folderLoadCancelled"));
             return;
         }
-        selectedFolder = folder.getAbsolutePath();
+        selectedFolder = folder.getAbsolutePath(); //TODO: Change to path.
         vectorStore = new VectorStore(selectedFolder);
         java.io.File indexDbFile = new java.io.File(selectedFolder + "/.dirchat/vectorstore.db");
         ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), messages.getString("progress.indexingDocuments"));
@@ -192,7 +194,11 @@ public class UIController {
                         updateMessage(messages.getString("status.indexLoaded"));
                     } else {
                         LogMessages.log("[Indexing] Index does not exist, processing files");
-                        org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
+
+                        //org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
+                        // TODO: Use DocumentLoader to get files.
+                        //List<org.dirchat.document.DocumentLoader.LoadedDocument> docs = loader.loadDocument
+
                         File[] files = folder.listFiles();
                         final int total = files != null ? files.length : 0;
                         AtomicInteger count = new AtomicInteger(0);
@@ -203,7 +209,7 @@ public class UIController {
                                 updateMessage(messages.getString("status.folderLoadCancelled"));
                                 break;
                             }
-                            if (file.isFile() && DocumentLoader.isSupported(file)) {
+                            if (file.isFile() && Dirchat.isSupported(file.toPath())) {
                                 count.incrementAndGet();
                                 LogMessages.log("[Indexing] Processing file: " + file.getName());
                                 updateMessage(messages.getString("progress.loadingFile").replace("{0}", file.getName()));

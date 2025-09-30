@@ -9,13 +9,38 @@ import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.sax.BodyContentHandler;
 import org.dirchat.util.LogMessages;
+import org.dirchat.util.Dirchat;
 
-import java.io.File;
+//import java.io.File;
+//import java.io.FileInputStream;
 import java.io.FileInputStream;
+import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DocumentLoader {
+    private List<Path>  listFiles;
+    private final Path folderPath;
+
+    public DocumentLoader(String folderPathStr){
+        super();
+        folderPath = Paths.get(folderPathStr);
+        try{
+            if (Files.exists(folderPath) && Files.isDirectory(folderPath)) {
+                listFiles = Files.walk(folderPath)
+                        .filter(path -> !Dirchat.isInIndexDirectory(path))
+                        .filter(path -> Dirchat.safeIsRegularFile(path))
+                        .toList();
+            }
+            else
+            {
+                throw new IllegalArgumentException("Folder path does not exist or is not a directory: " + folderPathStr);
+            }
+        }
+        catch (Exception e) {
+            LogMessages.logWarning("DocumentLoader: Folder path does not exist or is not a directory: " + folderPathStr);
+        }
+    }
 
     private final Tika tika = new Tika(); //Todo: are we using Tika or other stuff?
     // Allows the UI to register a callback for message bar updates.
@@ -81,38 +106,46 @@ public class DocumentLoader {
 
     }
 
-    public List<LoadedDocument> loadDocumentsFromFolder(String folderPath, org.dirchat.embedding.VectorStore vectorStore) {
+    public List<LoadedDocument> loadDocumentListFromFolder() {
         List<LoadedDocument> documents = new ArrayList<>();
-        File folder = new File(folderPath);
-
-        if (!folder.exists() || !folder.isDirectory()) {
+        if ( listFiles.isEmpty()) {
             String errMsg = "Invalid folder path: " + folderPath;
             System.err.println(errMsg);
             LogMessages.logWarning(errMsg);
             return documents;
         }
-
-        for (File file : folder.listFiles()) {
-            if (file.isFile() && isSupported(file)) {
+        for (Path path : listFiles) {
+            if (Files.exists(path) && Dirchat.isSupported(path)) {
                 try {
                     Metadata metadata = new Metadata();
-                    String content = parseDocumentWithMetadata(file, metadata);
-                    int documentId = file.getAbsolutePath().hashCode();
-                    LoadedDocument loadedDoc = new LoadedDocument(documentId, file.getName(), content, file.getAbsolutePath());
+                    String content = parseDocumentWithMetadata(path, metadata);
+                    int documentId = path.toAbsolutePath().toString().hashCode(); // IMPORTANT
+
+                    // TODO: Add toc and other metadata information. This information is also stored in the vector store.
+                    LoadedDocument loadedDoc = new LoadedDocument(
+                            documentId,
+                            path.getFileName().toString(),
+                            content,
+                            path.toAbsolutePath().toString());
+
                     loadedDoc.setMetadata(metadata); // Set metadata after document creation
                     // Extract and save document metadata (including TOC) before embedding
-                    vectorStore.extractAndSaveDocumentMetadata(loadedDoc);
+
+                    //TODO vectorStore.extractAndSaveDocumentMetadata(loadedDoc);
+
+
+
                     documents.add(loadedDoc);
-                    String msg = "Loaded document: " + file.getName();
+                    String msg = "Document loaded in list of LoadedDocuments: " + path.getFileName().toString();
                     LogMessages.log(msg);
                 } catch (org.dirchat.util.SqliteErrorException se) {
-                    String errMsg = "SQLITE error parsing: " + file.getName();
+                    String errMsg = "SQLITE error parsing: " + path.getFileName().toString();
                     System.err.println(errMsg);
                     LogMessages.logWarning(errMsg + ", reason: " + se.getMessage());
                     se.printStackTrace();
                     if (messageBarSetter != null) messageBarSetter.accept("SQLITE error: " + se.getMessage());
                 } catch (Exception e) {
-                    String errMsg = "Failed to parse: " + file.getName();
+                    String errMsg = "Failed to parse: " + path.getFileName().toString();
                     System.err.println(errMsg);
                     LogMessages.logWarning(errMsg + ", reason: " + e.getMessage());
                     e.printStackTrace();
@@ -123,35 +156,31 @@ public class DocumentLoader {
         return documents;
     }
 
-    /** Available supported files **/
-    public static boolean isSupported(File file) {
-        String name = file.getName().toLowerCase();
-        return name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".txt");
-    }
+
 
     /** Document parser **/
-    private String parseDocumentWithMetadata(File file, Metadata metadata) throws Exception {
+    private String parseDocumentWithMetadata(Path filePath, Metadata metadata) throws Exception {
         AutoDetectParser parser = new AutoDetectParser();
         BodyContentHandler handler = new BodyContentHandler(-1);
         String toc = "";
-        try (FileInputStream stream = new FileInputStream(file)) {
+        try (FileInputStream stream = new FileInputStream(filePath.toFile())) {
             parser.parse(stream, handler, metadata);
         }
-        String name = file.getName().toLowerCase();
+        String name = filePath.getFileName().toString().toLowerCase();
         if (name.endsWith(".pdf")) {
-            toc = extractPdfToc(file);
+            toc = extractPdfToc(filePath);
         } else if (name.endsWith(".docx")) {
-            toc = extractDocxToc(file);
+            toc = extractDocxToc(filePath);
         } else if (name.endsWith(".txt")) {
-            toc = extractTxtToc(file);
+            toc = extractTxtToc(filePath);
         }
         metadata.set("toc", toc);
         return handler.toString();
     }
 
-    private String extractPdfToc(File file) {
+    private String extractPdfToc(Path filePath) {
         StringBuilder sb = new StringBuilder();
-        try (PDDocument document = PDDocument.load(file)) {
+        try (PDDocument document = PDDocument.load(filePath.toFile())) {
             PDDocumentOutline outline = document.getDocumentCatalog().getDocumentOutline();
             if (outline != null) {
                 PDOutlineItem current = outline.getFirstChild();
@@ -190,11 +219,11 @@ public class DocumentLoader {
         }
     }
 
-    private String extractDocxToc(File file) {
+    private String extractDocxToc(Path filePath) {
         return "[TOC extraction for DOCX not implemented]";
     }
 
-    private String extractTxtToc(File file) {
+    private String extractTxtToc(Path filePath) {
         return "[TOC extraction for TXT not implemented]";
     }
 }
