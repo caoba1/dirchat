@@ -83,7 +83,10 @@ public class ChatService {
     public List<ScoredChunk> getTopDocumentChunks(String question) {
         float[] vector = embeddingModel.embed(question).content().vector();
         List<Double> queryVector = new java.util.ArrayList<>(vector.length);
-        for (float v : vector) queryVector.add((double) v);
+        for (float v : vector)
+        {
+            queryVector.add((double) v);
+        }
         int topK = org.dirchat.util.ConfigManager.getTopK();
         List<ScoredChunk> allScoredChunks;
         try {

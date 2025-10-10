@@ -16,7 +16,9 @@ import org.dirchat.util.Dirchat;
 import java.io.FileInputStream;
 import java.nio.file.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DocumentLoader {
     private List<Path>  listFiles;
@@ -83,6 +85,16 @@ public class DocumentLoader {
         }
         public Metadata getMetadata() {
             return metadata;
+        }
+        public Map<String,String> getMetadataMap() {
+            Map<String,String> map = new HashMap<>();
+            if (metadata != null) {
+                String[] names = metadata.names();
+                for (String name : names) {
+                    map.put(name, metadata.get(name));
+                }
+            }
+            return map;
         }
         public String getAbsolutePath() {
             return absolutePath;

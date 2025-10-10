@@ -18,7 +18,8 @@ public class UnifiedTest {
 
         // Step 1: Load documents
         final String folderPath = "C:/temp/TestDocs/"; // Update this path
-        VectorStore store = new VectorStore(folderPath);
+
+        VectorStore store = new VectorStore(folderPath); // Initialize VectorStore and DB SQLITE persitence
 
         DocumentLoader documentLoader = new DocumentLoader(folderPath);
         List<DocumentLoader.LoadedDocument> documents = documentLoader.loadDocumentListFromFolder();
@@ -50,8 +51,11 @@ public class UnifiedTest {
 
         // Step 4: Store embeddings and manage folder via VectorStore
         try {
-            store.initSqliteDb();
+
             store.setIndexingMethod("sbert"); // Ensure embedding method is set in settings table
+            //TODO: Add check while loading and saving so that embedding method is consistent between what is stored and what is used now
+
+
             for (int i = 0; i < documents.size(); i++) {
                 DocumentLoader.LoadedDocument doc = documents.get(i);
                 List<Chunk> docChunks = allDocChunks.get(i);

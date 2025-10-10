@@ -20,6 +20,8 @@
 // Chunks are used for document processing, embedding, search, and retrieval throughout the application.
 package org.dirchat.model;
 
+// TODO: Make chunk a record
+
 public class Chunk {
     private final String sourceFile;
     private final int index;

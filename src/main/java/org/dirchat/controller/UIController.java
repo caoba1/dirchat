@@ -178,7 +178,7 @@ public class UIController {
         }
         selectedFolder = folder.getAbsolutePath(); //TODO: Change to path.
         vectorStore = new VectorStore(selectedFolder);
-        java.io.File indexDbFile = new java.io.File(selectedFolder + "/.dirchat/vectorstore.db");
+
         ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), messages.getString("progress.indexingDocuments"));
         progressDialog.show();
         mainBorderPane.setCursor(Cursor.WAIT);
@@ -193,7 +193,7 @@ public class UIController {
                         docs = vectorStore.loadIndexing();
                         updateMessage(messages.getString("status.indexLoaded"));
                     } else {
-                        LogMessages.log("[Indexing] Index does not exist, processing files");
+                        LogMessages.log("[Indexing] Index does not exist or is not complete. Processing files");
 
                         //org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
                         // TODO: Use DocumentLoader to get files.
@@ -256,6 +256,8 @@ public class UIController {
                                 }
                                 // Save embeddings to DB
                                 vectorStore.saveDocumentEmbeddingsToSqlite(doc, docEmbeddings);
+                                // Save document metadata (including TOC)
+                                vectorStore.extractAndSaveDocumentMetadata(doc);
                                 docs.add(doc);
                                 Platform.runLater(() -> progressDialog.setFileProgress(0)); // Reset chunk progress bar
                             }
@@ -294,6 +296,13 @@ public class UIController {
                 progressDialog.close();
                 mainBorderPane.setCursor(Cursor.DEFAULT);
                 setMessageBar(messages.getString("status.folderLoadCancelled"));
+            });
+        });
+        loadTask.setOnFailed(e -> {
+            Platform.runLater(() -> {
+                progressDialog.close();
+                mainBorderPane.setCursor(Cursor.DEFAULT);
+                setMessageBar(messages.getString("status.indexSaveFailed"));
             });
         });
 

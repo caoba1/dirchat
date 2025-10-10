@@ -10,7 +10,7 @@ The current application implements SemanticSearch and Retrieval-Augmented Genera
 
 Indexing and retrieval methods are still in evaluatory phase. 
 
-For the time being, the application supports `.pdf`, `.docx`, and `.txt` files. More file types should be added in the future.
+For the time being, the application supports `.pdf` files and interfaces exist for expanding that to `.docx`, and `.txt`. More file types should be added in the future, as well as support for saving images in the same semantic space.
 
 ## Motivation
 Current open source implmentations for searching in directories lack support for semantic search and RAG generation in an open and straightforward way.  I also needed a fast alternative to catfish and recoll for searching and retrieving relevant files in a large document dataset.
