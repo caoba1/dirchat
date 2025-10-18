@@ -55,7 +55,7 @@ public class ConfigManager {
     }
 
     // indexing.paragraphOverlap
-    public static int getOverlap() {
+    public static int getOverlapCharacters() {
         String value = properties.getProperty("indexing.paragraphOverlap", "0");
         try {
             return Integer.parseInt(value);
@@ -64,7 +64,7 @@ public class ConfigManager {
             return 0;
         }
     }
-    public static int setOverlap(int overlap) throws IOException {
+    public static int setOverlapCharacters(int overlap) throws IOException {
         properties.setProperty("indexing.paragraphOverlap", String.valueOf(overlap));
         try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
             properties.store(out, "Updated overlap value");
@@ -75,6 +75,7 @@ public class ConfigManager {
         }
         return overlap;
     }
+
 
     // ollama.base.url
     public static String getOllamaBaseUrl() {
@@ -135,6 +136,27 @@ public class ConfigManager {
         properties.setProperty("app.language", langCode);
         try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
             properties.store(out, "Updated app language");
+        } catch (IOException e) {
+            System.err.println("Failed to save config file: " + e.getMessage());
+            LogMessages.logWarning("Failed to save configuration file");
+            throw e;
+        }
+    }
+
+    // indexing.chunkCharacterLimit (int)
+    public static int getChunkCharacterLimit() {
+        String value = properties.getProperty("indexing.chunkCharacterLimit", "1024");
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            LogMessages.logWarning("Invalid chunkCharacterLimit value in config.properties, using default 1000");
+            return -1;
+        }
+    }
+    public static void setChunkCharacterLimit(int limit) throws IOException {
+        properties.setProperty("indexing.chunkCharacterLimit", String.valueOf(limit));
+        try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
+            properties.store(out, "Updated chunkCharacterLimit value");
         } catch (IOException e) {
             System.err.println("Failed to save config file: " + e.getMessage());
             LogMessages.logWarning("Failed to save configuration file");

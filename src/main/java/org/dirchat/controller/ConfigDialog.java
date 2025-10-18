@@ -27,7 +27,7 @@ public class ConfigDialog extends Stage {
         paragraphsField.setTooltip(new Tooltip(bundle.getString("config.paragraphsPerChunk.tooltip")));
 
         Label overlapLabel = new Label(bundle.getString("config.paragraphOverlap"));
-        javafx.scene.control.TextField overlapField = new javafx.scene.control.TextField(String.valueOf(ConfigManager.getOverlap()));
+        javafx.scene.control.TextField overlapField = new javafx.scene.control.TextField(String.valueOf(ConfigManager.getOverlapCharacters()));
         overlapLabel.setTooltip(new Tooltip(bundle.getString("config.paragraphOverlap.tooltip")));
         overlapField.setTooltip(new Tooltip(bundle.getString("config.paragraphOverlap.tooltip")));
 
@@ -102,7 +102,7 @@ public class ConfigDialog extends Stage {
             try{
                 ConfigManager.setIndexingMethod(methodSelector.getValue());
                 ConfigManager.setParagraphsPerChunk(Integer.parseInt(paragraphsField.getText()));
-                ConfigManager.setOverlap(Integer.parseInt(overlapField.getText()));
+                ConfigManager.setOverlapCharacters(Integer.parseInt(overlapField.getText()));
                 ConfigManager.setOllamaBaseUrl(ollamaUrlField.getText());
                 ConfigManager.setTopK(Integer.parseInt(topKField.getText()));
                 // Find config value from selected label

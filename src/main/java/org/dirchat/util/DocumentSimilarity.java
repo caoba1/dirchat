@@ -1,6 +1,5 @@
 package org.dirchat.util;
 
-import org.dirchat.model.Chunk;
 import org.dirchat.model.QueryResult;
 import java.util.*;
 

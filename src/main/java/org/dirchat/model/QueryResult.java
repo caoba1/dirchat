@@ -1,6 +1,8 @@
 // Represents a response with references to source documents
 package org.dirchat.model;
 
+import org.dirchat.document.Chunk;
+
 import java.util.List;
 
 public class QueryResult {

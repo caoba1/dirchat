@@ -6,7 +6,9 @@ public class DocumentMetadata {
     private final Integer pageNumber;
     private final Integer chunkIndex;
 
-    public DocumentMetadata(String fileName, Integer pageNumber, Integer chunkIndex) {
+    public DocumentMetadata(String fileName,
+                            Integer pageNumber,
+                            Integer chunkIndex) {
         this.fileName = fileName;
         this.pageNumber = pageNumber;
         this.chunkIndex = chunkIndex;
@@ -15,11 +17,9 @@ public class DocumentMetadata {
     public String getFileName() {
         return fileName;
     }
-
     public Integer getPageNumber() {
         return pageNumber;
     }
-
     public Integer getChunkIndex() {
         return chunkIndex;
     }
@@ -32,6 +32,4 @@ public class DocumentMetadata {
                 ", chunkIndex=" + chunkIndex +
                 "]";
     }
-
-
 }

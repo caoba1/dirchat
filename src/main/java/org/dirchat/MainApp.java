@@ -6,6 +6,8 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
+import org.dirchat.controller.UIController;
+
 import java.nio.file.Path;
 import java.util.ResourceBundle;
 
@@ -44,6 +46,9 @@ public class MainApp extends Application {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/MainView.fxml"));
         Scene scene = new Scene(loader.load());
 
+        UIController controller = loader.getController();
+        mainStage.setOnCloseRequest( event -> controller.shutdown());
+
         // Set window title
         String windowTitle = ResourceBundle.getBundle("messages").getString("window.title").trim();
         mainStage.setTitle(windowTitle);
@@ -54,5 +59,7 @@ public class MainApp extends Application {
         mainStage.getIcons().add( dirchatLogo);
         mainStage.setScene(scene);
         mainStage.show();
+
+
     }
 }

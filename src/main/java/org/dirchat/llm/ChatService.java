@@ -1,26 +1,26 @@
 package org.dirchat.llm;
 
 import org.dirchat.controller.UIController;
-import org.dirchat.document.TextChunker;
 import org.dirchat.embedding.EmbeddingService; //todo: just use vector store directly
 import org.dirchat.embedding.VectorStore;
-import org.dirchat.embedding.VectorStore.ScoredChunk;
-import org.dirchat.model.Chunk;
+import org.dirchat.document.ScoredChunk;
+import org.dirchat.document.Chunk;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
 import dev.langchain4j.model.language.LanguageModel;
 import dev.langchain4j.model.ollama.OllamaLanguageModel;
+import org.dirchat.util.ConfigManager;
 import org.dirchat.util.LogMessages;
 import org.dirchat.document.DocumentLoader.LoadedDocument;
 
 import java.io.IOException;
-import java.net.ConnectException;
-import java.net.SocketTimeoutException;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class ChatService {
 
@@ -28,39 +28,21 @@ public class ChatService {
     private final LanguageModel languageModel;
     private final VectorStore vectorStore;
     private final List<LoadedDocument> documents;
-    private final TextChunker textChunker;
     private final UIController uiController;
+    private List<ScoredChunk> topChunks;
 
     private static java.util.function.Consumer<String> messageBarSetter;
 
     public static final int DOCUMENT_RANK = 5;
     public static final int MAX_SEARCH_RESULTS = 5;
 
-    public ChatService(VectorStore vectorStore, List<LoadedDocument> documents, TextChunker textChunker, UIController uiController) {
+    public ChatService(VectorStore vectorStore, List<LoadedDocument> documents, UIController uiController) {
         this.vectorStore = vectorStore;
         this.documents = documents;
-        this.textChunker = textChunker;
         this.uiController = uiController;
 
-        String indexingMethod = "tinyllama"; // For the embedding model, default to tinyllama
-        try {
-            String method = vectorStore.getIndexingMethod();
-            if (method != null && !method.isEmpty()) {
-                indexingMethod = method;
-            }
-        } catch (Exception e) {
-            LogMessages.logWarning("Could not retrieve indexing method, defaulting to tinyllama: " + e.getMessage());
-        }
-
-        if (indexingMethod.equalsIgnoreCase("default")) {
-            /* TODO
-            this.embeddingModel = dev.langchain4j.model.embedding.SentenceTransformerEmbeddingModel.builder()
-                .modelName("sentence-transformers/all-MiniLM-L6-v2")
-                .build();
-
-             */
-            LogMessages.log("Not implemented");
-        } else if (indexingMethod.equalsIgnoreCase("sbert")) {
+        String indexingMethod = ConfigManager.getIndexingMethod();
+        if (indexingMethod.equalsIgnoreCase("sbert")) {
             this.embeddingModel = OllamaEmbeddingModel.builder()
                 .baseUrl(EmbeddingService.BASE_URL)
                 .modelName("all-minilm:33m") // or other SBERT model, tinyllama
@@ -79,6 +61,8 @@ public class ChatService {
                     .timeout(Duration.ofMinutes(15))  // or even longer
                     .build();
     }
+
+
     // RAG
     public List<ScoredChunk> getTopDocumentChunks(String question) {
         float[] vector = embeddingModel.embed(question).content().vector();
@@ -88,7 +72,7 @@ public class ChatService {
             queryVector.add((double) v);
         }
         int topK = org.dirchat.util.ConfigManager.getTopK();
-        List<ScoredChunk> allScoredChunks;
+        List<ScoredChunk> allScoredChunks = new java.util.ArrayList<>();
         try {
             allScoredChunks = vectorStore.compoundSearchWithScores(queryVector, topK);
         } catch (IOException e) {
@@ -100,24 +84,64 @@ public class ChatService {
             if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
             throw new RuntimeException(e);
         }
-        List<ScoredChunk> metadataChunks = new java.util.ArrayList<>();
-        List<ScoredChunk> contentChunks = new java.util.ArrayList<>();
-        for (ScoredChunk sc : allScoredChunks) {
-            if ("metadata".equals(sc.getChunk().getChunkType())) {
-                metadataChunks.add(sc);
-            } else {
-                contentChunks.add(sc);
-            }
-        }
-        List<ScoredChunk> topChunks = new java.util.ArrayList<>();
-        topChunks.addAll(contentChunks.stream().limit(topK).collect(java.util.stream.Collectors.toList()));
-        if (!metadataChunks.isEmpty() && (allScoredChunks.indexOf(metadataChunks.get(0)) < 3)) {
-            topChunks.add(0, metadataChunks.get(0));
-        }
-        if (topChunks.size() > topK) {
+
+        // all scored chunks are sorted by score descending
+       allScoredChunks.sort((a, b) -> Double.compare(b.getScore(), a.getScore()));
+        if (allScoredChunks.size() > topK) {
             topChunks = topChunks.subList(0, topK);
         }
+
         return topChunks;
+    }
+
+
+    public void findTopDocuments(String question) {
+        List<ScoredChunk> topChunks = getTopDocumentChunks(question);
+        // Extract topK unique documents
+        List<Integer> docIds = topChunks.stream()
+                .map(sc -> sc.getDocumentId())
+                .distinct()
+                .limit(org.dirchat.util.ConfigManager.getTopK())
+                .collect(Collectors.toList());
+        List<LoadedDocument> topDocuments = docIds.stream()
+                .map(docId -> documents.stream().filter(d -> d.documentId == docId).findFirst().orElse(null))
+                .filter(d -> d != null)
+                .collect(Collectors.toList());
+        // Update UIController.indexStatusList
+        if (uiController != null) {
+            uiController.setIndexStatusListItems(topDocuments);
+        }
+        this.topChunks = topChunks;
+    }
+
+    public String answerTopDocuments(String question) {
+        // Build context from top chunks
+        String context = topChunks.stream()
+                .map(sc -> sc.getContent())
+                .collect(Collectors.joining("\n\n"));
+
+        ArrayList<String> topContent = topChunks.stream()
+                .map( sc -> sc.getContent())
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        String stringPrompt = "You are to answer the question based on the following file contents:\n";
+        String stringDocumentList = IntStream.rangeClosed(1, topContent.size())
+                .mapToObj(i -> "`" + topContent.get(i) + "`")
+                .collect(Collectors.joining("\n"));
+        stringPrompt += "\n" + stringDocumentList;
+        stringPrompt += "\n\nThe question is:\n" + question;
+
+        // Is this to be catched?
+        dev.langchain4j.model.output.Response<String> response = languageModel.generate(stringPrompt);
+
+        LogMessages.log("Raw response from language model: " + response);
+        try {
+            return response.content();
+        } catch (Exception parseEx) {
+            LogMessages.logWarning("Error parsing response content: " + parseEx.getMessage() + ", raw response: " + response);
+            if (messageBarSetter != null) messageBarSetter.accept("Error: Malformed response from language server. Please check server logs.");
+            return "[Error: Malformed response from language server. Please check server logs.]";
+        }
     }
 
     // Optionally, provide a getter for the start prompt
@@ -148,7 +172,7 @@ public class ChatService {
         // Group by document and calculate average score
         Map<String, List<ScoredChunk>> docToChunks = new java.util.HashMap<>();
         for (ScoredChunk sc : topChunks) {
-            String doc = sc.getChunk().getSourceFile();
+            String doc = sc.getSourceFile();
             docToChunks.computeIfAbsent(doc, k -> new java.util.ArrayList<>()).add(sc);
         }
 
@@ -164,6 +188,7 @@ public class ChatService {
         return summaries;
     }
 
+    /*
     public String answerQuestion(String question, int topK) {
         try {
             List<ScoredChunk> topChunks = getTopDocumentChunks(question);
@@ -181,6 +206,7 @@ public class ChatService {
             if (uiController != null) {
                 uiController.setIndexStatusListItems(topDocuments);
             }
+
             // Build context from top chunks
             String context = topChunks.stream()
                 .map(sc -> {
@@ -247,87 +273,5 @@ public class ChatService {
                 return "[Error: Unable to reach the language server. Please check your server connection.]";
             }
         }
-    }
-
-    private String reconstructChunkContent(Chunk chunk) {
-        for (LoadedDocument doc : documents) {
-            if (doc.documentId == chunk.getDocumentId()) {
-                List<Chunk> chunks = textChunker.chunkText(doc.content, doc.fileName, doc.documentId);
-                for (Chunk c : chunks) {
-                    if (c.getIndex() == chunk.getIndex()) {
-                        return c.getContent();
-                    }
-                }
-            }
-        }
-        return "";
-    }
-
-    /**
-     * Retrieve chunk content using document_id, chunk_index, page_number, and cursor_pointer
-     * Refactored to use DocumentLoader.LoadedDocument and Tika Metadata.
-     */
-    public String retrieveChunkContent(int documentId, int chunkIndex, int pageNumber, int cursorPointer) {
-        LoadedDocument doc = documents.stream()
-            .filter(d -> d.documentId == documentId)
-            .findFirst()
-            .orElse(null);
-        if (doc == null) return null;
-        // Use TextChunker or direct string slicing to get chunk content
-        return textChunker.getChunkContent(doc, chunkIndex, pageNumber, cursorPointer);
-    }
-
-    /**
-     * Get top scored chunks using pointer-based access and reconstruct their content.
-     */
-    public List<ScoredChunk> getTopChunksWithContent(List<Double> queryVector, int topK) {
-        List<ScoredChunk> topChunks;
-        try {
-            topChunks = vectorStore.getChunkEmbeddingsWithScores(queryVector, topK);
-        } catch (IOException | SQLException e) {
-            LogMessages.logWarning("Failed to search vector store: " + e.getMessage());
-            if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
-            throw new RuntimeException(e);
-        }
-        for (ScoredChunk sc : topChunks) {
-            Chunk chunk = sc.getChunk();
-            LoadedDocument doc = documents.stream()
-                .filter(d -> d.documentId == chunk.getDocumentId())
-                .findFirst()
-                .orElse(null);
-            if (doc != null) {
-                String content = textChunker.getChunkContent(doc, chunk.getChunkIndex(), chunk.getPageNumber(), chunk.getCursorPointer());
-                chunk.setContent(content);
-            }
-        }
-        return topChunks;
-    }
-
-    // Apply output mode: summarize, truncate, or none
-    public String processAnswer(String answer) {
-        String mode = org.dirchat.util.ConfigManager.getOutputMode();
-        switch (mode) {
-            case "summarize":
-                return summarize(answer);
-            case "truncate":
-                return truncate(answer);
-            default:
-                return answer;
-        }
-    }
-
-    // Stub for truncation logic
-    private String truncate(String text) {
-        // TODO: Implement actual truncation logic
-        if (text.length() > 500) {
-            return text.substring(0, 500) + "...";
-        }
-        return text;
-    }
-
-    // Stub for summarization logic
-    private String summarize(String text) {
-        // TODO: Implement actual summarization logic
-        return "[Summary] " + text;
-    }
+    }*/
 }

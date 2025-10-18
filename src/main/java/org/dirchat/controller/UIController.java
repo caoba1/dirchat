@@ -10,12 +10,13 @@ import javafx.scene.control.TextArea;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import org.dirchat.document.DocumentLoader;
-import org.dirchat.document.TextChunker;
-import org.dirchat.embedding.EmbeddingService;
-import org.dirchat.embedding.VectorStore;
+import org.dirchat.embedding.*;
 import org.dirchat.llm.ChatService;
-import org.dirchat.model.Chunk;
-import org.dirchat.util.Dirchat;
+
+import java.util.concurrent.Future;
+
+
+
 import org.dirchat.util.LogMessages;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -25,11 +26,9 @@ import javafx.stage.Stage;
 
 import java.awt.*;
 import java.io.File;
-import java.nio.file.Paths;
 import java.util.List;
-import java.util.Map;
 import java.util.ResourceBundle;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Executors;
 
 public class UIController {
     @FXML
@@ -65,6 +64,11 @@ public class UIController {
     private String selectedFolder;
     private VectorStore vectorStore;
     private List<org.dirchat.document.DocumentLoader.LoadedDocument> loadedDocuments;
+
+
+    private final java.util.concurrent.ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final List<Future<?>> futures = new java.util.ArrayList<>();
+
 
     @FXML
     public void initialize() {
@@ -181,107 +185,12 @@ public class UIController {
 
         ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), messages.getString("progress.indexingDocuments"));
         progressDialog.show();
+
         mainBorderPane.setCursor(Cursor.WAIT);
-        javafx.concurrent.Task<Void> loadTask = new javafx.concurrent.Task<>() {
-            @Override
-            protected Void call() {
-                try {
-                    List<DocumentLoader.LoadedDocument> docs = new java.util.ArrayList<>();
-                    LogMessages.log("[Indexing] Task started");
-                    if (vectorStore.indexExists()) {
-                        LogMessages.log("[Indexing] Index exists, loading from DB");
-                        docs = vectorStore.loadIndexing();
-                        updateMessage(messages.getString("status.indexLoaded"));
-                    } else {
-                        LogMessages.log("[Indexing] Index does not exist or is not complete. Processing files");
 
-                        //org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
-                        // TODO: Use DocumentLoader to get files.
-                        //List<org.dirchat.document.DocumentLoader.LoadedDocument> docs = loader.loadDocument
-
-                        File[] files = folder.listFiles();
-                        final int total = files != null ? files.length : 0;
-                        AtomicInteger count = new AtomicInteger(0);
-                        EmbeddingService embeddingService = new EmbeddingService();
-                        for (File file : files) {
-                            if (progressDialog.isCancelled() || isCancelled()) {
-                                LogMessages.log("[Indexing] Cancelled by user (file loop)");
-                                updateMessage(messages.getString("status.folderLoadCancelled"));
-                                break;
-                            }
-                            if (file.isFile() && Dirchat.isSupported(file.toPath())) {
-                                count.incrementAndGet();
-                                LogMessages.log("[Indexing] Processing file: " + file.getName());
-                                updateMessage(messages.getString("progress.loadingFile").replace("{0}", file.getName()));
-                                Platform.runLater(() -> {
-                                    progressDialog.setFileName(file.getName());
-                                    progressDialog.setProgress((double) count.get() / total);
-                                });
-                                org.apache.tika.metadata.Metadata metadata = new org.apache.tika.metadata.Metadata();
-                                String content = "";
-                                try {
-                                    content = new String(java.nio.file.Files.readAllBytes(file.toPath()));
-                                    org.apache.tika.parser.AutoDetectParser parser = new org.apache.tika.parser.AutoDetectParser();
-                                    org.apache.tika.sax.BodyContentHandler handler = new org.apache.tika.sax.BodyContentHandler(-1);
-                                    try (java.io.FileInputStream stream = new java.io.FileInputStream(file)) {
-                                        parser.parse(stream, handler, metadata);
-                                    }
-                                } catch (Exception ex) {
-                                    LogMessages.logWarning("[Indexing] Error reading file: " + file.getName() + " - " + ex.getMessage());
-                                }
-                                int documentId = file.getAbsolutePath().hashCode();
-                                DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(documentId, file.getName(), content, file.getAbsolutePath());
-                                doc.setMetadata(metadata);
-                                // Chunk and embed
-                                List<Chunk> docChunks = embeddingService.textChunker.chunkText(content, file.getName(), documentId);
-                                Map<Chunk, List<Double>> docEmbeddings = new java.util.HashMap<>();
-                                final int chunkCount = docChunks.size();
-                                AtomicInteger chunkIdx = new AtomicInteger(0);
-                                for (Chunk chunk : docChunks) {
-                                    if (progressDialog.isCancelled() || isCancelled()) {
-                                        LogMessages.log("[Indexing] Cancelled by user (chunk loop)");
-                                        updateMessage(messages.getString("status.folderLoadCancelled"));
-                                        break;
-                                    }
-                                    LogMessages.log("[Indexing] Embedding chunk " + chunkIdx.get() + "/" + chunkCount + " for file: " + file.getName());
-                                    List<Double> embedding = embeddingService.embedChunk(chunk, selectedFolder, file.getName());
-                                    docEmbeddings.put(chunk, embedding);
-                                    chunkIdx.incrementAndGet();
-                                    Platform.runLater(() -> progressDialog.setFileProgress((double) chunkIdx.get() / chunkCount));
-                                    if (progressDialog.isCancelled() || isCancelled()) {
-                                        LogMessages.log("[Indexing] Cancelled by user (after embedding chunk)");
-                                        updateMessage(messages.getString("status.folderLoadCancelled"));
-                                        break;
-                                    }
-                                }
-                                // Save embeddings to DB
-                                vectorStore.saveDocumentEmbeddingsToSqlite(doc, docEmbeddings);
-                                // Save document metadata (including TOC)
-                                vectorStore.extractAndSaveDocumentMetadata(doc);
-                                docs.add(doc);
-                                Platform.runLater(() -> progressDialog.setFileProgress(0)); // Reset chunk progress bar
-                            }
-                        }
-                        updateMessage(messages.getString("status.indexLoaded"));
-                    }
-                    loadedDocuments = docs;
-                    LogMessages.log("[Indexing] Task completed");
-                } catch (Exception e) {
-                    if (e instanceof java.net.ConnectException ||
-                    e.getCause() instanceof java.net.ConnectException) {
-                        LogMessages.logWarning("[Indexing] Connection error: " + e.getMessage());
-                        //updateMessage(messages.getString("error.connectionError") + ": " + e.getMessage());
-                        updateIndexLoadedIndicator(IndexStatus.FAILED);
-                    } else {
-                        LogMessages.logWarning("[Indexing] Exception: " + e.getMessage());
-                        //updateMessage(messages.getString("status.folderLoadError") + ": " + e.getMessage());
-                    }
-                    this.cancel(); // TODO -> Override call(), succeded() and call cancel() on failed.
-                }
-                return null;
-            }
-        };
+        javafx.concurrent.Task<Void> loadTask = new IndexingTask( vectorStore, progressDialog );
         loadTask.setOnSucceeded(e -> {
+            // UI  Updates are run on Platform thread
             Platform.runLater(() -> {
                 progressDialog.close();
                 mainBorderPane.setCursor(Cursor.DEFAULT);
@@ -289,6 +198,7 @@ public class UIController {
                 setMessageBar(messages.getString("status.indexLoaded"));
                 indexStatusList.getItems().setAll(loadedDocuments);
                 askButton.setDisable(false);
+                updateIndexLoadedIndicator(UIController.IndexStatus.LOADED);
             });
         });
         loadTask.setOnCancelled(e -> {
@@ -296,6 +206,8 @@ public class UIController {
                 progressDialog.close();
                 mainBorderPane.setCursor(Cursor.DEFAULT);
                 setMessageBar(messages.getString("status.folderLoadCancelled"));
+                updateIndexLoadedIndicator(UIController.IndexStatus.NOT_SELECTED);
+
             });
         });
         loadTask.setOnFailed(e -> {
@@ -303,10 +215,18 @@ public class UIController {
                 progressDialog.close();
                 mainBorderPane.setCursor(Cursor.DEFAULT);
                 setMessageBar(messages.getString("status.indexSaveFailed"));
+                updateIndexLoadedIndicator(UIController.IndexStatus.FAILED);
             });
         });
 
-        new Thread(loadTask).start();
+        futures.add(executorService.submit(loadTask));
+    }
+
+    public void shutdown() {
+        for (Future<?> future : futures) {
+            future.cancel(true);
+        }
+        executorService.shutdownNow();
     }
 
     private void handleAskQuestion() {
@@ -315,18 +235,31 @@ public class UIController {
             return;
         }
         mainBorderPane.setCursor(Cursor.WAIT);
+
         LogMessages.log(messages.getString("QUESTION").replace("{0}", question));
-        setMessageBar(messages.getString("QUESTION").replace("{0}", question));
         chatListView.getItems().clear();
+
+        // TODO> Refactor to separate class. This may be a task.
+
         String answer;
         try {
-            ChatService chatService = new ChatService(vectorStore, loadedDocuments, new TextChunker(6), this);
-            answer = chatService.answerQuestion(question, ChatService.MAX_SEARCH_RESULTS);
+            ChatService chatService = new ChatService(vectorStore,
+                    loadedDocuments,
+                    this);
+
+            // Find documents and update their order
+            chatService.findTopDocuments(question); // Saves top documents
+
+            // Previous call calls setIndexStatusListItems internally on this UIController
+            answer = chatService.answerTopDocuments(question);
+
+            //answer = chatService.answerQuestion(question, ChatService.MAX_SEARCH_RESULTS);
         } catch (Exception ex) {
             LogMessages.logWarning(ex.getMessage());
             answer = messages.getString("error.failedToAnswer");
             setMessageBar(messages.getString("error.failedToAnswer") + ": " + ex.getMessage(), "red");
         }
+
         LogMessages.log(messages.getString("ANSWER").replace("{0}", answer));
         chatListView.getItems().add(messages.getString("chat.question") + ": " + question);
         chatListView.getItems().add(messages.getString("chat.answer") + ": " + answer);
@@ -334,7 +267,7 @@ public class UIController {
         mainBorderPane.setCursor(Cursor.DEFAULT);
     }
 
-    private void openDocument(org.dirchat.document.DocumentLoader.LoadedDocument doc) {
+    private void openDocument(DocumentLoader.LoadedDocument doc) {
         setMessageBar(messages.getString("status.openingDocument").replace("{0}", doc.fileName));
         if (Desktop.isDesktopSupported())
         {
@@ -348,7 +281,7 @@ public class UIController {
         setMessageBar("");
     }
 
-    public void setIndexStatusListItems(List<org.dirchat.document.DocumentLoader.LoadedDocument> docs) {
+    public void setIndexStatusListItems(List<DocumentLoader.LoadedDocument> docs) {
         if (indexStatusList != null) {
             indexStatusList.getItems().setAll(docs);
         }

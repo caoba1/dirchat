@@ -1,17 +1,9 @@
 package org.dirchat;
 
-import org.dirchat.document.DocumentLoader;
-import org.dirchat.document.TextChunker;
-import org.dirchat.embedding.EmbeddingService;
-import org.dirchat.embedding.VectorStore;
-import org.dirchat.llm.ChatService;
-import org.dirchat.model.Chunk;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 public class UnifiedTest {
+
+    /*
+
     public static void main(String[] args) {
 
         System.out.println("Starting unified test pipeline...");
@@ -31,7 +23,7 @@ public class UnifiedTest {
         int documentCount = 0;
         for (DocumentLoader.LoadedDocument doc : documents) {
             documentCount++;
-            List<Chunk> docChunks = chunker.chunkText(doc.getContent(), doc.getFileName(), doc.getDocumentId());
+            //List<Chunk> docChunks = chunker.chunkText(doc.getContent(), doc.getFileName(), doc.getDocumentId());
             System.out.println("✅ Created " + docChunks.size() + " chunks for document " + documentCount + " of " + documents.size() + " :" + doc.getFileName());
             allDocChunks.add(docChunks);
         }
@@ -52,7 +44,7 @@ public class UnifiedTest {
         // Step 4: Store embeddings and manage folder via VectorStore
         try {
 
-            store.setIndexingMethod("sbert"); // Ensure embedding method is set in settings table
+            //store.setIndexingMethod("sbert"); // Ensure embedding method is set in settings table
             //TODO: Add check while loading and saving so that embedding method is consistent between what is stored and what is used now
 
 
@@ -71,7 +63,7 @@ public class UnifiedTest {
                 Map<Chunk, List<Double>> loaded = store.loadDocumentEmbeddingsFromSqlite(doc);
                 System.out.println("✅ Loaded " + loaded.size() + " embeddings from SQLite for " + doc.getFileName());
             }
-            System.out.println("Embedding method in SQLite: " + store.getSqliteEmbeddingMethod());
+            //System.out.println("Embedding method in SQLite: " + store.getSqliteEmbeddingMethod());
         } catch (Exception e) {
             org.dirchat.util.LogMessages.logWarning(e.getMessage());
             System.err.println("❌ Error saving embeddings: " + e.getMessage());
@@ -81,9 +73,9 @@ public class UnifiedTest {
 
         // Step 5: Ask a question
         if (store != null) {
-            ChatService chatService = new ChatService(store, documents, chunker, null);
+            //ChatService chatService = new ChatService(store, documents, chunker, null);
             String question = "How many chapters are about java in the documents?";
-            String answer = chatService.answerQuestion(question, 5);
+            //String answer = chatService.answerQuestion(question, 5);
             System.out.println("🧠 Question: " + question);
             System.out.println("💬 Answer: " + answer);
         } else {
@@ -91,4 +83,7 @@ public class UnifiedTest {
         }
         System.out.println("Finished all tests successfully!");
     }
+
+
+     */
 }

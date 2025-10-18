@@ -1,13 +1,14 @@
 package org.dirchat.util;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class Dirchat {
     public static final String VERSION = "0.1.0-alpha";
     public static final String NAME = "dirchat";
     public static final String DIRECTORY = ".dirchat";
-
     // Functions in use
     public static boolean safeIsRegularFile(Path path) {
         try {
@@ -33,5 +34,11 @@ public class Dirchat {
         return name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".txt");
     }
 
+    public static List<Double> floatArrayToDoubleList(float[] array) {
+        return java.util.stream.IntStream.range(0, array.length)
+                .mapToDouble(i -> array[i])
+                .boxed()
+                .collect(Collectors.toList());
+    }
 
 }
