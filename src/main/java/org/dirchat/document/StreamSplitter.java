@@ -2,7 +2,6 @@ package org.dirchat.document;
 
 //import org.apache.tika.sax.ContentHandler;
 import javafx.application.Platform;
-import org.apache.tika.pipes.emitter.Emitter;
 import org.dirchat.controller.ProgressDialog;
 import org.dirchat.embedding.VectorStore;
 import org.dirchat.embedding.EmbeddingService;
@@ -16,6 +15,8 @@ import org.xml.sax.Attributes;
 
 import org.dirchat.controller.ProgressDialog;
 
+import java.io.IOException;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,6 +32,12 @@ public class StreamSplitter implements ContentHandler {
     private final VectorStore vectorStore;
     private final DocumentLoader.LoadedDocument document;
     private final ProgressDialog progressDialog;
+    // For chunk extraction mode
+    private final Integer targetCursorPointer;
+    private final Integer targetChunkIndex;
+    private String extractedChunk = null;
+    private boolean extractionMode = false;
+
     public StreamSplitter(EmbeddingService embeddingService,
                           VectorStore vectorStore,
                           DocumentLoader.LoadedDocument document,
@@ -39,6 +46,33 @@ public class StreamSplitter implements ContentHandler {
         this.vectorStore = vectorStore;
         this.document = document;
         this.progressDialog = progressDialog;
+        this.targetCursorPointer = null;
+        this.targetChunkIndex = null;
+        this.extractionMode = false;
+    }
+
+    // Constructor for extraction by cursorPointer
+    public StreamSplitter(int targetCursorPointer) {
+        this.embeddingService = null;
+        this.vectorStore = null;
+        this.document = null;
+        this.progressDialog = null;
+        this.targetCursorPointer = targetCursorPointer;
+        this.targetChunkIndex = null;
+        this.extractionMode = true;
+    }
+    // Constructor for extraction by chunkIndex
+    public StreamSplitter(int targetChunkIndex, boolean byIndex) {
+        this.embeddingService = null;
+        this.vectorStore = null;
+        this.document = null;
+        this.progressDialog = null;
+        this.targetCursorPointer = null;
+        this.targetChunkIndex = byIndex ? targetChunkIndex : null;
+        this.extractionMode = true;
+    }
+    public String getExtractedChunk() {
+        return extractedChunk;
     }
 
     private final StringBuilder currentChunk = new StringBuilder();
@@ -46,7 +80,6 @@ public class StreamSplitter implements ContentHandler {
     private String overlapBuffer = "";
 
     private void processChunk(String thisChunk) {
-        // Process the chunk (e.g., store it, send it for embedding, etc.)
         lastChunk = thisChunk;
 
         // Update overlapBuffer with the last CHUNK_OVERLAP characters
@@ -56,11 +89,24 @@ public class StreamSplitter implements ContentHandler {
             overlapBuffer = thisChunk;
         }
 
-        //
+        if (extractionMode) {
+            // Extraction by cursorPointer
+            if (targetCursorPointer != null && cursorPointer.get() == targetCursorPointer) {
+                extractedChunk = thisChunk;
+            }
+            // Extraction by chunkIndex
+            if (targetChunkIndex != null && chunkIndex.get() == targetChunkIndex) {
+                extractedChunk = thisChunk;
+            }
+            // Only update pointers, do not process or store chunk
+            cursorPointer.addAndGet(thisChunk.length() - CHUNK_OVERLAP);
+            chunkIndex.incrementAndGet();
+            return;
+        }
+
+        // Indexing mode: process and store chunk
         dirchatStoreChunk(thisChunk);
         cursorPointer.addAndGet(thisChunk.length() - CHUNK_OVERLAP);
-
-
         // For demonstration, we just print the chunk size
         System.out.println("Processed chunk of size: " + thisChunk.length());
     }
@@ -78,12 +124,17 @@ public class StreamSplitter implements ContentHandler {
             throw new RuntimeException("Cancelado por el usuario");
         }
 
-        List<Double> embedding = embeddingService.embedText(chunkText);
-        vectorStore.saveChunkEmbeddingToSqlite(chunk, embedding);
+        List<Double> embedding = embeddingService.embedText(chunkText); //magic
+        try {
+            vectorStore.saveChunkEmbeddingToSqlite(chunk, embedding);
+        } catch (SQLException | IOException e) {
+            throw new RuntimeException(e);
+        }
 
         // Call to
-        Double totalChunks = (int) Math.ceil( (double) (this.document.getContent().length()) / (CHUNK_CHAR_LIMIT - CHUNK_OVERLAP) );
-        Platform.runLater(() -> progressDialog.setFileProgress( chunkIndex.doubleValue() / (totalChunks) ));
+        double totalChunks = Math.ceil( (double) (this.document.getContent().length()) / (CHUNK_CHAR_LIMIT - CHUNK_OVERLAP) );
+        double progress = Math.min(chunkIndex.doubleValue() / (totalChunks), 1.0);
+        Platform.runLater(() -> progressDialog.setFileProgress(progress));
         if (progressDialog.isCancelled() ) {
             LogMessages.logWarning("[Indexing] Cancelled by user (after embedding chunk)");
         }

@@ -14,9 +14,11 @@ import org.dirchat.util.LogMessages;
 import org.dirchat.document.DocumentLoader.LoadedDocument;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -29,7 +31,7 @@ public class ChatService {
     private final VectorStore vectorStore;
     private final List<LoadedDocument> documents;
     private final UIController uiController;
-    private List<ScoredChunk> topChunks;
+    private List<org.dirchat.document.TopChunkResult> topChunks;
 
     private static java.util.function.Consumer<String> messageBarSetter;
 
@@ -64,7 +66,7 @@ public class ChatService {
 
 
     // RAG
-    public List<ScoredChunk> getTopDocumentChunks(String question) {
+    public List<org.dirchat.document.TopChunkResult> getTopDocumentChunks(String question) {
         float[] vector = embeddingModel.embed(question).content().vector();
         List<Double> queryVector = new java.util.ArrayList<>(vector.length);
         for (float v : vector)
@@ -72,9 +74,9 @@ public class ChatService {
             queryVector.add((double) v);
         }
         int topK = org.dirchat.util.ConfigManager.getTopK();
-        List<ScoredChunk> allScoredChunks = new java.util.ArrayList<>();
+        List<org.dirchat.document.TopChunkResult> results = null;
         try {
-            allScoredChunks = vectorStore.compoundSearchWithScores(queryVector, topK);
+            results = vectorStore.compoundSearchWithScores(queryVector, topK);
         } catch (IOException e) {
             LogMessages.logWarning("Failed to search vector store (I/O): " + e.getMessage());
             if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
@@ -84,66 +86,69 @@ public class ChatService {
             if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
             throw new RuntimeException(e);
         }
-
-        // all scored chunks are sorted by score descending
-       allScoredChunks.sort((a, b) -> Double.compare(b.getScore(), a.getScore()));
-        if (allScoredChunks.size() > topK) {
-            topChunks = topChunks.subList(0, topK);
-        }
-
-        return topChunks;
+        return results;
     }
 
-
     public void findTopDocuments(String question) {
-        List<ScoredChunk> topChunks = getTopDocumentChunks(question);
-        // Extract topK unique documents
-        List<Integer> docIds = topChunks.stream()
-                .map(sc -> sc.getDocumentId())
-                .distinct()
-                .limit(org.dirchat.util.ConfigManager.getTopK())
-                .collect(Collectors.toList());
-        List<LoadedDocument> topDocuments = docIds.stream()
-                .map(docId -> documents.stream().filter(d -> d.documentId == docId).findFirst().orElse(null))
-                .filter(d -> d != null)
-                .collect(Collectors.toList());
-        // Update UIController.indexStatusList
-        if (uiController != null) {
-            uiController.setIndexStatusListItems(topDocuments);
+        topChunks = getTopDocumentChunks(question);
+        if (uiController != null && topChunks != null) {
+            // Build a LinkedHashMap of documentId to score for UI
+            java.util.LinkedHashMap<Integer, Double> topDocuments = new java.util.LinkedHashMap<>();
+            for (org.dirchat.document.TopChunkResult tcr : topChunks) {
+                topDocuments.put(tcr.getDocumentId(), tcr.getScore());
+            }
+            uiController.updateTopDocuments(topDocuments);
         }
-        this.topChunks = topChunks;
     }
 
     public String answerTopDocuments(String question) {
-        // Build context from top chunks
-        String context = topChunks.stream()
-                .map(sc -> sc.getContent())
-                .collect(Collectors.joining("\n\n"));
-
-        ArrayList<String> topContent = topChunks.stream()
-                .map( sc -> sc.getContent())
-                .collect(Collectors.toCollection(ArrayList::new));
-
+        // Build context from top chunks using chunkId
+        List<String> topContent = new ArrayList<>();
+        for (org.dirchat.document.TopChunkResult tcr : topChunks) {
+            String content = getChunkContentById(tcr.getChunkId());
+            if (content != null) {
+                topContent.add(content);
+            }
+        }
         String stringPrompt = "You are to answer the question based on the following file contents:\n";
-        String stringDocumentList = IntStream.rangeClosed(1, topContent.size())
+        String stringDocumentList = IntStream.range(0, topContent.size())
                 .mapToObj(i -> "`" + topContent.get(i) + "`")
                 .collect(Collectors.joining("\n"));
         stringPrompt += "\n" + stringDocumentList;
         stringPrompt += "\n\nThe question is:\n" + question;
 
-        // Is this to be catched?
         dev.langchain4j.model.output.Response<String> response = languageModel.generate(stringPrompt);
-
         LogMessages.log("Raw response from language model: " + response);
         try {
             return response.content();
         } catch (Exception parseEx) {
-            LogMessages.logWarning("Error parsing response content: " + parseEx.getMessage() + ", raw response: " + response);
-            if (messageBarSetter != null) messageBarSetter.accept("Error: Malformed response from language server. Please check server logs.");
-            return "[Error: Malformed response from language server. Please check server logs.]";
+            return "[Error parsing response]";
         }
     }
 
+    // Helper to retrieve chunk cursorPointer by chunkId from the database via VectorStore
+    private String getChunkContentById(int chunkId) {
+        long cursorPointer = vectorStore.getChunkCursorPointer(chunkId);
+        int documentId = vectorStore.getChunkDocumentId(chunkId);
+        String sourceFilePath = vectorStore.getDocumentPathById(documentId);
+        if (sourceFilePath == null || cursorPointer < 0) {
+            return null;
+        }
+        try {
+            org.apache.tika.parser.AutoDetectParser parser = new org.apache.tika.parser.AutoDetectParser();
+            org.apache.tika.metadata.Metadata metadata = new org.apache.tika.metadata.Metadata();
+            org.apache.tika.parser.ParseContext context = new org.apache.tika.parser.ParseContext();
+            org.dirchat.document.StreamSplitter splitter = new org.dirchat.document.StreamSplitter((int)cursorPointer);
+            try (java.io.InputStream stream = new java.io.FileInputStream(sourceFilePath)) {
+                parser.parse(stream, splitter, metadata, context);
+            }
+            return splitter.getExtractedChunk();
+        } catch (Exception e) {
+            org.dirchat.util.LogMessages.log("Error extracting chunk content for chunkId " + chunkId + ": " + e.getMessage());
+            e.printStackTrace(); // Log full
+        }
+        return null;
+    }
     // Optionally, provide a getter for the start prompt
     // TODO Move to chatService
     private static final String PROMPT_FILE = "prompt.txt";
@@ -166,112 +171,4 @@ public class ChatService {
         }
         return startPromptCache;
     }
-
-    public List<String> getTopDocumentSummaries(String question) {
-        List<ScoredChunk> topChunks = getTopDocumentChunks(question);
-        // Group by document and calculate average score
-        Map<String, List<ScoredChunk>> docToChunks = new java.util.HashMap<>();
-        for (ScoredChunk sc : topChunks) {
-            String doc = sc.getSourceFile();
-            docToChunks.computeIfAbsent(doc, k -> new java.util.ArrayList<>()).add(sc);
-        }
-
-        List<String> summaries = new java.util.ArrayList<>();
-        for (Map.Entry<String, List<ScoredChunk>> entry : docToChunks.entrySet()) {
-            String doc = entry.getKey();
-            List<ScoredChunk> chunks = entry.getValue();
-            double avgScore = chunks.stream().mapToDouble(ScoredChunk::getScore).average().orElse(0.0);
-            summaries.add(doc + " (avg score: " + String.format("%.3f", avgScore) + ")");
-        }
-        LogMessages.log( "Top document summaries: \n"
-                + String.join("\n",summaries));
-        return summaries;
-    }
-
-    /*
-    public String answerQuestion(String question, int topK) {
-        try {
-            List<ScoredChunk> topChunks = getTopDocumentChunks(question);
-            // Extract topK unique documents
-            List<Integer> docIds = topChunks.stream()
-                .map(sc -> sc.getChunk().getDocumentId())
-                .distinct()
-                .limit(topK)
-                .collect(Collectors.toList());
-            List<LoadedDocument> topDocuments = docIds.stream()
-                .map(docId -> documents.stream().filter(d -> d.documentId == docId).findFirst().orElse(null))
-                .filter(d -> d != null)
-                .collect(Collectors.toList());
-            // Update UIController.indexStatusList
-            if (uiController != null) {
-                uiController.setIndexStatusListItems(topDocuments);
-            }
-
-            // Build context from top chunks
-            String context = topChunks.stream()
-                .map(sc -> {
-                    Chunk chunk = sc.getChunk();
-                    String typeLabel = "metadata".equals(chunk.getChunkType()) ? "[METADATA]\n" : "";
-                    return typeLabel + reconstructChunkContent(chunk);
-                })
-                .collect(Collectors.joining("\n\n"));
-
-            // Build Documents Metadata section
-            String documentsMetadata = topDocuments.stream()
-                .map(doc -> {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("Document: ").append(doc.fileName).append("\n");
-                    String[] names = doc.metadata.names();
-                    for (String name : names) {
-                        sb.append("  ").append(name).append(": ").append(doc.metadata.get(name)).append("\n");
-                    }
-                    return sb.toString();
-                })
-                .collect(Collectors.joining("\n"));
-
-            int maxContextLength = 216; //2048 //org.dirchat.util.ConfigManager.getMaxContextLength();
-            context = context.substring(0, Math.min(context.length(), maxContextLength));
-            documentsMetadata = documentsMetadata.substring(0, Math.min(documentsMetadata.length(), maxContextLength));
-            question = question.substring(0, Math.min(question.length(), maxContextLength));
-
-            // Now chat and wait for resutls. Using documents that appear on the left. Use a prompt template.
-            // Todo: do summaries for getting context.
-            // Todo: rearrange document metadata to a summary also
-
-            // The following line does not work. Not even reducing the context length helps.
-            // I am changing maxContextLength to 512.  What is the maximum context length for Mistral? For tinyllama?
-            String prompt = "Answer the following question based on the context below.\n\n"
-                    + "Context:\n" + context + "\n\n"
-                    + "Documents Metadata:\n" + documentsMetadata + "\n\n"
-                    + "Question:\n" + question;
-
-
-
-
-            dev.langchain4j.model.output.Response<String> response = languageModel.generate(prompt);
-            LogMessages.log("Raw response from language model: " + response);
-            try {
-                return response.content();
-            } catch (Exception parseEx) {
-                LogMessages.logWarning("Error parsing response content: " + parseEx.getMessage() + ", raw response: " + response);
-                if (messageBarSetter != null) messageBarSetter.accept("Error: Malformed response from language server. Please check server logs.");
-                return "[Error: Malformed response from language server. Please check server logs.]";
-            }
-        } catch (Exception ex) {
-            Throwable cause = ex.getCause();
-            if (cause instanceof java.net.SocketTimeoutException) {
-                if (messageBarSetter != null) messageBarSetter.accept("Error: Language server timed out. Please try again later.");
-                LogMessages.logWarning("Socket timeout while answering question: '" + question + "', reason: " + cause.getMessage());
-                return "[Error: Language server timed out. Please try again later.]";
-            } else if (cause instanceof java.net.ConnectException) {
-                if (messageBarSetter != null) messageBarSetter.accept("Error: Unable to connect to the language server. Please check your server status.");
-                LogMessages.logWarning("Connection error while answering question: '" + question + "', reason: " + cause.getMessage());
-                return "[Error: Unable to connect to the language server. Please check your server status.]";
-            } else {
-                if (messageBarSetter != null) messageBarSetter.accept("Error: Unable to reach the language server. Please check your server connection.");
-                LogMessages.logWarning("Failed to answer question: '" + question + "', reason: " + ex.getMessage());
-                return "[Error: Unable to reach the language server. Please check your server connection.]";
-            }
-        }
-    }*/
 }

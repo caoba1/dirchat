@@ -14,8 +14,7 @@ import org.dirchat.embedding.*;
 import org.dirchat.llm.ChatService;
 
 import java.util.concurrent.Future;
-
-
+import java.util.LinkedHashMap;
 
 import org.dirchat.util.LogMessages;
 import javafx.fxml.FXML;
@@ -140,10 +139,10 @@ public class UIController {
                     setStyle("");
                 } else {
                     String scoreText = messages.getString("label.scoreNA");
-                    if (item.metadata != null && item.metadata.get("score") != null) {
-                        scoreText = messages.getString("label.score") + " " + item.metadata.get("score");
+                    if (item.getScore() > 0.0) {
+                        scoreText = messages.getString("label.score") + " " + String.format("%.3f", item.getScore());
                     }
-                    scoreLabel.setText(item.fileName + " | " + scoreText);
+                    scoreLabel.setText(item.getFileName() + " | " + scoreText);
                     setGraphic(hbox);
                     if (isSelected()) {
                         setStyle("-fx-background-color: #cce6ff;");
@@ -191,6 +190,7 @@ public class UIController {
         javafx.concurrent.Task<Void> loadTask = new IndexingTask( vectorStore, progressDialog );
         loadTask.setOnSucceeded(e -> {
             // UI  Updates are run on Platform thread
+            loadedDocuments = ((IndexingTask) loadTask).getLoadedDocuments();
             Platform.runLater(() -> {
                 progressDialog.close();
                 mainBorderPane.setCursor(Cursor.DEFAULT);
@@ -268,12 +268,12 @@ public class UIController {
     }
 
     private void openDocument(DocumentLoader.LoadedDocument doc) {
-        setMessageBar(messages.getString("status.openingDocument").replace("{0}", doc.fileName));
+        setMessageBar(messages.getString("status.openingDocument").replace("{0}", doc.getFileName()));
         if (Desktop.isDesktopSupported())
         {
             try{
-                Desktop.getDesktop().open(new File(doc.absolutePath));
-                LogMessages.log(messages.getString("status.openedDocument").replace("{0}", doc.fileName));
+                Desktop.getDesktop().open( doc.absolutePath.toFile());
+                LogMessages.log(messages.getString("status.openedDocument").replace("{0}", doc.getFileName()));
             }catch(Exception ex){
                 LogMessages.log(messages.getString("status.failedToOpenDocument").replace("{0}", ex.getMessage()));
             }
@@ -285,6 +285,31 @@ public class UIController {
         if (indexStatusList != null) {
             indexStatusList.getItems().setAll(docs);
         }
+    }
+
+    /**
+     * Updates loadedDocuments and indexStatusList to reflect top scored documents.
+     * @param topScores LinkedHashMap of documentId to score, sorted by score descending
+     */
+    public void updateTopDocuments(LinkedHashMap<Integer, Double> topScores) {
+        if (loadedDocuments == null || topScores == null || topScores.isEmpty()) return;
+        // Map documentId to LoadedDocument for fast lookup
+        java.util.Map<Integer, org.dirchat.document.DocumentLoader.LoadedDocument> docMap = new java.util.HashMap<>();
+        for (org.dirchat.document.DocumentLoader.LoadedDocument doc : loadedDocuments) {
+            docMap.put(doc.getDocumentId(), doc);
+        }
+        // Build new ordered list
+        java.util.List<org.dirchat.document.DocumentLoader.LoadedDocument> orderedDocs = new java.util.ArrayList<>();
+        for (java.util.Map.Entry<Integer, Double> entry : topScores.entrySet()) {
+            org.dirchat.document.DocumentLoader.LoadedDocument doc = docMap.get(entry.getKey());
+            if (doc != null) {
+                doc.setScore(entry.getValue());
+                orderedDocs.add(doc);
+            }
+        }
+        // Update loadedDocuments and UI
+        //loadedDocuments = orderedDocs;
+        setIndexStatusListItems(orderedDocs);
     }
 
     // In UIController.java
@@ -354,7 +379,7 @@ public class UIController {
         String sort = sortComboBox.getValue();
         if (sort != null) {
             switch (sort) {
-                case "Name" -> docs.sort(java.util.Comparator.comparing(d -> d.fileName));
+                case "Name" -> docs.sort(java.util.Comparator.comparing(d -> d.getFileName()));
                 case "Score" -> docs.sort((a, b) -> {
                     try {
                         double sa = Double.parseDouble(a.metadata.get("score"));

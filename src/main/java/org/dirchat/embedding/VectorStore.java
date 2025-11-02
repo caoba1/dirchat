@@ -8,7 +8,7 @@ SQLite Database Architecture Diagram
 +-------------------+      +-------------------+      +-------------------+
 | id (PK)           |      | id (PK)           |      | id (PK)           |
 | property_key (U)  |      | filename (U)      |      | document_id (FK)  |
-| property_value    |      | location          |      | chunk_index       |
+| property_value    |      | -location-          |      | chunk_index       |
 +-------------------+      | number_pages      |      | page_number       |
                           | filetype          |      | cursor_pointer    |
                           | toc               |      | embedding_vector  |
@@ -32,7 +32,7 @@ Relationships:
 
 Table Descriptions:
 - table_index: Stores global index properties (e.g., version, settings).
-- table_document: Stores metadata for each document (filename, location, pages, type, TOC, etc.).
+- table_document: Stores metadata for each document (filename, pages, type, TOC, etc.).
 - table_chunk: Stores chunk embeddings and pointers for each document chunk. Each chunk is linked to a document via document_id.
 - settings: Stores global settings (e.g., embedding method).
 
@@ -255,26 +255,30 @@ public class VectorStore {
 
     /**
      * Compound search: search for topK similar chunks across ALL documents (SQLite-backed, loads chunks in batches)
+     * Returns a list of TopChunkResult (documentId, chunkId, score) for the topK scores.
      */
-    public List<ScoredChunk> compoundSearchWithScores(List<Double> queryVector, int topK) throws SQLException, IOException {
-        List<ScoredChunk> allScoredChunks = new ArrayList<>();
-        String sql = "SELECT chunk_id, vector FROM table_chunk";
+    public java.util.List<org.dirchat.document.TopChunkResult> compoundSearchWithScores(List<Double> queryVector, int topK) throws SQLException, IOException {
+        java.util.List<org.dirchat.document.TopChunkResult> results = new java.util.ArrayList<>();
+        String sql = "SELECT id, document_id, embedding_vector FROM table_chunk";
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
             try (PreparedStatement stmt = conn.prepareStatement(sql);
                  ResultSet rs = stmt.executeQuery()) {
                 ObjectMapper mapper = new ObjectMapper();
                 while (rs.next()) {
-                    Chunk chunk = mapper.readValue(rs.getString(""), Chunk.class);
-                    List<Double> vector = mapper.readValue(rs.getString("vector"), new TypeReference<List<Double>>() {});
+                    int chunkId = rs.getInt("id");
+                    int documentId = rs.getInt("document_id");
+                    String embeddingJson = rs.getString("embedding_vector");
+                    List<Double> vector = mapper.readValue(embeddingJson, new com.fasterxml.jackson.core.type.TypeReference<List<Double>>() {});
                     double score = cosineSimilarity(queryVector, vector);
-                    allScoredChunks.add(new ScoredChunk(chunk, score));
+                    results.add(new org.dirchat.document.TopChunkResult(documentId, chunkId, score));
                 }
             }
         }
-        return allScoredChunks.stream()
-                .sorted(Comparator.comparingDouble(ScoredChunk::getScore).reversed())
+        // Sort by score descending and take topK
+        return results.stream()
+                .sorted(java.util.Comparator.comparingDouble(org.dirchat.document.TopChunkResult::getScore).reversed())
                 .limit(topK)
-                .collect(Collectors.toList());
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private double cosineSimilarity(List<Double> a, List<Double> b) {
@@ -327,30 +331,15 @@ public class VectorStore {
     public List<DocumentLoader.LoadedDocument> loadIndexing() throws IOException {
         List<DocumentLoader.LoadedDocument> loadedDocs = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath.toString())) {
-            String sql = "SELECT id, filename, location, number_pages, filetype, metadata FROM table_document";
+            String sql = "SELECT document_id FROM table_document";
             try (PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     int documentId = rs.getInt("id");
-                    String filename = rs.getString("filename");
-                    String location = rs.getString("location");
-                    int numberPages = rs.getInt("number_pages");
-                    String filetype = rs.getString("filetype");
-                    String metadataJson = rs.getString("metadata");
-                    // Load content and absolutePath (assuming location is the path)
-                    String absolutePath = location;
-                    String content = "";
-                    org.apache.tika.metadata.Metadata metadata = new org.apache.tika.metadata.Metadata();
-                    try {
-                        content = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(location)));
-                        // Extract metadata using Tika
-                        org.apache.tika.parser.AutoDetectParser parser = new org.apache.tika.parser.AutoDetectParser();
-                        org.apache.tika.sax.BodyContentHandler handler = new org.apache.tika.sax.BodyContentHandler(-1);
-                        try (java.io.FileInputStream stream = new java.io.FileInputStream(location)) {
-                            parser.parse(stream, handler, metadata);
-                        }
-                    } catch (Exception ignore) {}
-                    DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(documentId, filename, content, absolutePath);
-                    doc.setMetadata(metadata);
+                    // todo: reconstruct toc and metadataMap from JSON
+                    // todo: do we need all or just check documentId to what in the loaded folder is?
+                    // remember: the metadataMap is not extracted yet in the list of loaded documents
+                    // we just need the id of the document.
+                    DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(documentId);
                     loadedDocs.add(doc);
                 }
             }
@@ -392,35 +381,33 @@ public class VectorStore {
     // Save embeddings for a document (SQLite)
     public void saveDocumentEmbeddingsToSqlite(DocumentLoader.LoadedDocument loadedDocument, Map<Chunk, List<Double>> chunkEmbeddings) throws SQLException, IOException {
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
-            String sqlDocument = "INSERT OR REPLACE INTO table_document (id, filename, location, number_pages, filetype, toc, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String sqlDocument = "INSERT OR REPLACE INTO table_document (document_id, filename, number_pages, filetype, toc, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement pstmtDoc = conn.prepareStatement(sqlDocument)) {
                 ObjectMapper mapper = new ObjectMapper();
                 pstmtDoc.setInt(1, loadedDocument.getDocumentId());
-                pstmtDoc.setString(2, loadedDocument.getFileName());
-                pstmtDoc.setString(3, loadedDocument.getAbsolutePath());
-                pstmtDoc.setInt(4, loadedDocument.getNumberPages());
-                pstmtDoc.setString(5, loadedDocument.getFileType());
-                pstmtDoc.setString(6, mapper.writeValueAsString(loadedDocument.getToc()));
-                pstmtDoc.setString(7, mapper.writeValueAsString(loadedDocument.getMetadataMap()));
+                pstmtDoc.setString(2, loadedDocument.getAbsolutePath());
+                pstmtDoc.setInt(3, loadedDocument.getNumberPages());
+                pstmtDoc.setString(4, loadedDocument.getFileType());
+                pstmtDoc.setString(5, mapper.writeValueAsString(loadedDocument.getToc()));
+                pstmtDoc.setString(6, mapper.writeValueAsString(loadedDocument.getMetadataMap()));
                 pstmtDoc.executeUpdate();
             }
         }
     }
 
 
-
-
-
-    /**
-     * Insert or update document metadata in DOCUMENT table
-     */
-    public void upsertDocumentMetadata(DocumentLoader.LoadedDocument doc, String metadataJson) throws SQLException {
+    public void upsertLoadedDocument(DocumentLoader.LoadedDocument doc) throws SQLException, IOException {
+        String sql = "INSERT OR REPLACE INTO table_document " +
+                "(document_id, filename, number_pages, filetype, toc, metadata) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
-            String sql = "UPDATE table_document SET toc = ?, metadata = ? WHERE id = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setString(1, doc.toc);
-                pstmt.setString(2, metadataJson);
-                pstmt.setInt(3, doc.documentId);
+                pstmt.setInt(1, doc.getDocumentId());
+                pstmt.setString(2, doc.getAbsolutePath());
+                pstmt.setInt(3, doc.getNumberPages());
+                pstmt.setString(4, doc.getFileType());
+                pstmt.setString(5, mapper.writeValueAsString(doc.getToc()));
+                pstmt.setString(6, mapper.writeValueAsString(doc.getMetadataMap()));
                 pstmt.executeUpdate();
             }
         }
@@ -433,22 +420,24 @@ public class VectorStore {
 
 
 
-        String sql = "SELECT document_id, chunk_index, page_number, cursor_pointer, embedding_vector FROM table_chunk";
+        String sql = "SELECT id, document_id, cursor_pointer, embedding_vector FROM table_chunk";
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
             try (PreparedStatement stmt = conn.prepareStatement(sql);
                  ResultSet rs = stmt.executeQuery()) {
                 ObjectMapper mapper = new ObjectMapper();
                 while (rs.next()) {
-                    int documentId = rs.getInt("document_id");
-                    int chunkIndex = rs.getInt("chunk_index");
-                    int pageNumber = rs.getInt("page_number");
+                    int documentId = rs.getInt("id");
+                    int chunkIndex = rs.getInt("document__id");
                     int cursorPointer = rs.getInt("cursor_pointer");
                     String embeddingJson = rs.getString("embedding_vector");
                     List<Double> vector = mapper.readValue(embeddingJson, new TypeReference<List<Double>>() {});
-                    // Reconstruct Chunk (set sourceFile, index, chunkType to null/defaults)
                     Chunk chunk = new Chunk();//(documentId, 0, chunkIndex, pageNumber, cursorPointer, documentId, null);
                     double score = cosineSimilarity(queryVector, vector);
-                    allScoredChunks.add(new ScoredChunk(chunk, score));
+
+                    allScoredChunks.add(new ScoredChunk(documentId
+                            ,chunkIndex
+                            ,cursorPointer
+                            ,score));
                 }
             }
         }
@@ -484,5 +473,108 @@ public class VectorStore {
             LogMessages.logWarning("Failed to get document count: " + e.getMessage());
         }
         return 0;
+    }
+
+    /**
+     * Returns the cursorPointer for the given chunkId from table_chunk.
+     */
+    public int getChunkCursorPointer(int chunkId) {
+        String sql = "SELECT cursor_pointer FROM table_chunk WHERE id = ?";
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, chunkId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("cursor_pointer");
+                    }
+                }
+            }
+        } catch (Exception e) {
+            org.dirchat.util.LogMessages.logWarning("Failed to retrieve cursorPointer for chunk id " + chunkId + ": " + e.getMessage());
+        }
+        return -1;
+    }
+
+    /**
+     * Retrieves the document_id for a given chunkId from table_chunk.
+     * @param chunkId the id of the chunk
+     * @return the document_id, or -1 if not found or error
+     */
+    public int getChunkDocumentId(int chunkId) {
+        String sql = "SELECT document_id FROM table_chunk WHERE id = ?";
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath.toString())) {
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, chunkId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("document_id");
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            LogMessages.log("Error retrieving document_id for chunkId " + chunkId + ": " + e.getMessage());
+        }
+        return -1;
+    }
+
+    /**
+     * Retrieves the absolute path for a document given its documentId from table_document.
+     * If the filename is already absolute, returns it directly.
+     * @param documentId the id of the document
+     * @return the absolute path as a String, or null if not found or error
+     */
+    public String getDocumentPathById(int documentId) {
+        String sql = "SELECT filename FROM table_document WHERE document_id = ?";
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath.toString())) {
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, documentId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        String filename = rs.getString("filename");
+                        if (filename != null && !filename.isEmpty()) {
+                            Path filePath = Path.of(filename);
+                            if (filePath.isAbsolute()) {
+                                return filePath.toString();
+                            } else {
+                                // Fallback: resolve relative to workspace root or .dirchat folder
+                                Path folder = getFolder();
+                                return folder.resolve(filename).toAbsolutePath().toString();
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            LogMessages.log("Error retrieving document path for documentId " + documentId + ": " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves the chunk content from the source file using chunkId, cursorPointer, and chunk size.
+     * @param chunkId the id of the chunk
+     * @return the chunk content as a String, or null if not found or error
+     */
+    public String getChunkContentById(int chunkId) {
+        // Get cursorPointer and sourceFilePath from table_chunk
+        int cursorPointer = getChunkCursorPointer(chunkId);
+        int documentId = getChunkDocumentId(chunkId);
+        String sourceFilePath = getDocumentPathById(documentId);
+        if (sourceFilePath == null || cursorPointer < 0) {
+            return null;
+        }
+        int chunkSize = org.dirchat.util.ConfigManager.getChunkCharacterLimit();
+        java.nio.file.Path filePath = java.nio.file.Paths.get(sourceFilePath);
+        try {
+            String fileContent = java.nio.file.Files.readString(filePath);
+            if (cursorPointer >= fileContent.length()) {
+                return null;
+            }
+            int end = Math.min(cursorPointer + chunkSize, fileContent.length());
+            return fileContent.substring(cursorPointer, end);
+        } catch (Exception e) {
+            org.dirchat.util.LogMessages.log("Error reading chunk content for chunkId " + chunkId + ": " + e.getMessage());
+            return null;
+        }
     }
 }

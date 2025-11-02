@@ -7,6 +7,7 @@ import org.dirchat.document.StreamSplitter;
 import org.dirchat.util.Dirchat;
 import javafx.application.Platform;
 import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
@@ -15,7 +16,7 @@ import org.dirchat.controller.ProgressDialog;
 import org.dirchat.util.LogMessages;
 
 public class IndexingTask extends Task<Void> {
-    private final File folder;
+    private final File folder; //DB file
     private final VectorStore vectorStore;
     private final ProgressDialog progressDialog;
     private List<DocumentLoader.LoadedDocument> loadedDocuments;
@@ -45,8 +46,11 @@ public class IndexingTask extends Task<Void> {
                 // TODO: Use DocumentLoader to get files.
                 //List<org.dirchat.document.DocumentLoader.LoadedDocument> docs = loader.loadDocument
 
-                File[] files = folder.listFiles();
-                final int total = files != null ? files.length : 0;
+                File folderFileInstance = folder.getParentFile();
+                File[] files = folderFileInstance.listFiles();
+                final long total = Arrays.stream(files)
+                        .filter( (File f) -> f.isFile() )
+                        .count();
                 AtomicInteger count = new AtomicInteger(0);
                 EmbeddingService embeddingService = new EmbeddingService();
                 for (File file : files) {
@@ -74,10 +78,9 @@ public class IndexingTask extends Task<Void> {
 
                         int documentId = file.getAbsolutePath().hashCode();
                         DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(documentId,
-                                file.getName(),
-                                file.getAbsolutePath());
-                        doc.setMetadata(metadata);
-                        vectorStore.extractAndSaveDocumentMetadata(doc); // Save in table_document
+                                file.getAbsolutePath(), true);
+
+                        vectorStore.upsertLoadedDocument(doc); // Save in table_document
 
                         // Our custom ContentHandler that splits the stream into chunks and embeds them
                         org.xml.sax.ContentHandler handler = new StreamSplitter( embeddingService,
@@ -85,18 +88,11 @@ public class IndexingTask extends Task<Void> {
                                 doc,
                                 progressDialog);
 
-                        try ( java.io.FileInputStream stream = new java.io.FileInputStream(file)) {
-                                parser.parse(stream, handler, metadata);
-                        } catch (java.io.IOException e) {
-                            // Handle I/O errors (e.g., file not found)
-                            e.printStackTrace();
-                        } catch (org.apache.tika.exception.TikaException e) {
-                            // Handle Tika parsing errors
-                            e.printStackTrace();
-                        } catch (org.xml.sax.SAXException e) {
-                            // Handle SAX/ContentHandler errors
-                            e.printStackTrace();
+                        // Parse the file synchronously, waiting for handler to complete
+                        try (java.io.InputStream stream = new java.io.FileInputStream(file)) {
+                            parser.parse(stream, handler, metadata, context);
                         }
+                        docs.add(doc);
 
                         Platform.runLater(() -> progressDialog.setFileProgress(0)); // Reset chunk progress bar
                     }
@@ -108,10 +104,13 @@ public class IndexingTask extends Task<Void> {
         } catch (Exception e) {
             if (e instanceof java.net.ConnectException ||
                     e.getCause() instanceof java.net.ConnectException) {
-                LogMessages.logWarning("[Indexing] Connection error: " + e.getMessage());
+                    LogMessages.logWarning("[Indexing] Connection error: " + e.getMessage());
                 //updateMessage(messages.getString("error.connectionError") + ": " + e.getMessage());
+                } else if (e instanceof org.apache.tika.exception.TikaException) {
+                    LogMessages.logWarning("[Indexing] Tika Exception: " + e.getMessage());
+                //updateMessage(messages.getString("status.folderLoadError") + ": " + e.getMessage());
                 } else {
-                LogMessages.logWarning("[Indexing] Exception: " + e.getMessage());
+                    LogMessages.logWarning("[Indexing] Exception: " + e.getMessage());
                 //updateMessage(messages.getString("status.folderLoadError") + ": " + e.getMessage());
             }
             this.cancel(); // TODO -> Override call(), succeded() and call cancel() on failed.

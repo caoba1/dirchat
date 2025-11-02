@@ -49,7 +49,7 @@ public class QueryResult {
         sb.append("References:\n");
         for (Chunk chunk : referencedChunks) {
             sb.append("- ").append(chunk.getSourceFile())
-                    .append(" [#").append(chunk.getIndex()).append("]\n");
+                    .append(" [#").append(chunk.getChunkIndex()).append("]\n");
         }
         return sb.toString();
     }
