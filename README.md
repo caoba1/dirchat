@@ -4,16 +4,24 @@
 
 # A directory chat application written in Java
 
-A desktop application for question answering over local documents using Apache Tika, LangChain4j, and JavaFX. 
+A front end for directory querying using network embeddings and question answering on the retrieved local documents using language models.
+
+The application is written in Java and implements an interface for the creation of embeddings and the reply of queries by poking a (large) language model either locally or on a server.
+
+When a user asks a question, the results of the top K documents are shown in the A desktop application for question answering over local documents using Apache Tika, LangChain4j, and JavaFX. 
 
 The current application implements SemanticSearch and Retrieval-Augmented Generation (RAG) using embeddings and a local LLM via [Ollama](https://ollama.com/). Please fell free to message me or do a pull request if you want to contibute adding image-to-text or pdf-to-markup or other featurs which can contribute to the indexing process. 
 
 Indexing and retrieval methods are still in evaluatory phase. 
 
-For the time being, the application supports `.pdf` files and interfaces exist for expanding that to `.docx`, and `.txt`. More file types should be added in the future, as well as support for saving images in the same semantic space.
+The application supports `.pdf` files and interfaces exist for expanding that to `.docx`, and `.txt`. More file types should be added in the future, as well as support for saving images in the same semantic space.
 
 ## Motivation
-Current open source implmentations for searching in directories lack support for semantic search and RAG generation in an open and straightforward way.  I also needed a fast alternative to catfish and recoll for searching and retrieving relevant files in a large document dataset.
+I created this application to have a fast and local solution for searching and querying large document datasets.
+
+For testbenching i have used a large set of PDF documents downloaded from [data.gov](https://data.labs.loc.gov/dot-gov/) and [loc.gov](https://www.loc.gov/item/2020445568/).  Please message me if you have information on current benchmarks. 
+
+Current open source implmentations for searching in directories lack support for semantic search and RAG generation in an open and straightforward way.   Goal is to use the application as an alternative for other large dataset searching tools like catfish and recoll.
 
 ## Evaluation
 For testing and improving the semantic search semantic and the RAG process, I am using [tinyllama](https://ollama.com/models/tinyllama) as the embedding model. 
