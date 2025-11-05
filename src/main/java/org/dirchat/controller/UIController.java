@@ -29,6 +29,9 @@ import java.util.List;
 import java.util.ResourceBundle;
 import java.util.concurrent.Executors;
 
+import org.dirchat.util.Dirchat;
+
+
 public class UIController {
     @FXML
     private TextArea questionField;
@@ -58,7 +61,10 @@ public class UIController {
     private ComboBox<String> filterComboBox;
     @FXML
     private Button exportChatButton;
-    private final ResourceBundle messages = ResourceBundle.getBundle("messages");
+    @FXML
+    private Button resetChatButton;
+
+    private final Dirchat.ResourceBundleWrapper messages = new Dirchat.ResourceBundleWrapper("messages");
 
     private String selectedFolder;
     private VectorStore vectorStore;
@@ -85,6 +91,10 @@ public class UIController {
         exportChatButton.setTooltip(new Tooltip(messages.getString("tooltip.exportChat"))); // change to button.exportChat.tooltip
         exportChatButton.setText(messages.getString("button.exportChat"));
         exportChatButton.setOnAction(e -> exportChatHistory());
+
+        resetChatButton.setTooltip(new Tooltip(messages.getString("tooltip.resetChat"))); // change to button.exportChat.tooltip
+        resetChatButton.setText(messages.getString("button.resetChat"));
+        resetChatButton.setOnAction(e -> handleReset());
 
         configButton.setText(messages.getString("button.config"));
         configButton.setTooltip(new Tooltip(messages.getString("tooltip.config")));
@@ -131,18 +141,22 @@ public class UIController {
                 hbox.getChildren().addAll(scoreLabel, openButton);
             }
             @Override
-            protected void updateItem(org.dirchat.document.DocumentLoader.LoadedDocument item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
+            protected void updateItem(org.dirchat.document.DocumentLoader.LoadedDocument doc, boolean empty) {
+                super.updateItem(doc, empty);
+                if (empty || doc == null) {
                     setText(null);
                     setGraphic(null);
                     setStyle("");
                 } else {
                     String scoreText = messages.getString("label.scoreNA");
-                    if (item.getScore() > 0.0) {
-                        scoreText = messages.getString("label.score") + " " + String.format("%.3f", item.getScore());
+
+                    if (!doc.isIndexed())
+                    {
+                        scoreText = messages.getString("label.notIndexed");
+                    } else if (doc.getScore() > 0.0) {
+                        scoreText = String.format(messages.getString("label.scoreValue"), doc.getScore());
                     }
-                    scoreLabel.setText(item.getFileName() + " | " + scoreText);
+                    scoreLabel.setText(doc.getFileName() + " | " + scoreText);
                     setGraphic(hbox);
                     if (isSelected()) {
                         setStyle("-fx-background-color: #cce6ff;");
@@ -196,7 +210,8 @@ public class UIController {
                 mainBorderPane.setCursor(Cursor.DEFAULT);
                 folderLabel.setText(messages.getString("label.selectedFolder") + ": " + selectedFolder);
                 setMessageBar(messages.getString("status.indexLoaded"));
-                indexStatusList.getItems().setAll(loadedDocuments);
+                indexStatusList.getItems().clear();
+                indexStatusList.getItems().addAll(loadedDocuments);
                 askButton.setDisable(false);
                 updateIndexLoadedIndicator(UIController.IndexStatus.LOADED);
             });
@@ -220,6 +235,13 @@ public class UIController {
         });
 
         futures.add(executorService.submit(loadTask));
+    }
+
+    public void handleReset() {
+        chatListView.getItems().clear();
+        indexStatusList.getItems().clear();
+        indexStatusList.getItems().addAll(loadedDocuments);
+        setMessageBar(messages.getString("status.chatReset"));
     }
 
     public void shutdown() {

@@ -85,6 +85,11 @@
                                 <Tooltip fx:id="exportChatTooltip" />
                             </tooltip>
                         </Button>
+                        <Button fx:id="resetChatButton" focusTraversable="true">
+                            <tooltip>
+                                <Tooltip fx:id="resetChatTooltip" />
+                            </tooltip>
+                        </Button>
                     </HBox>
                 </VBox>
             </VBox>

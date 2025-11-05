@@ -2,7 +2,7 @@ package org.dirchat.util;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.function.Predicate;
+import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
 public class Dirchat {
@@ -39,6 +39,26 @@ public class Dirchat {
                 .mapToDouble(i -> array[i])
                 .boxed()
                 .collect(Collectors.toList());
+    }
+
+    public static class ResourceBundleWrapper extends ResourceBundle {
+        private final ResourceBundle wrappedInstance;
+        public ResourceBundleWrapper(String baseName){
+            super();
+            this.wrappedInstance = ResourceBundle.getBundle(baseName);
+        }
+        @Override
+        protected Object handleGetObject(String key) {
+            try {
+                return wrappedInstance.getObject(key);
+            } catch (Exception e) {
+                return "!" + key + "!";
+            }
+        }
+        @Override
+        public java.util.Enumeration<String> getKeys() {
+            return wrappedInstance.getKeys();
+        }
     }
 
 }
