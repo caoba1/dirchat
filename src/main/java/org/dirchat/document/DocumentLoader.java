@@ -54,7 +54,7 @@ public class DocumentLoader {
     private static java.util.function.Consumer<String> messageBarSetter;
 
     public static class LoadedDocument {
-        public final int documentId; //unique accross documents. from path.hashCode()
+        private final int documentId; //unique accross documents. from path.hashCode()
         public Metadata metadata; // Now mutable. why? shouldnt we be able to set it at creation only?
         public final Path absolutePath;
         public String toc;
@@ -62,18 +62,18 @@ public class DocumentLoader {
         private int numberOfPages = 0;// Whether this document has been indexed
         private double score = 0.0;
 
-        public LoadedDocument(int documentId, String absolutePath, boolean extractMetadata) {
-            this.documentId = documentId;
+        public LoadedDocument(String absolutePath, boolean extractMetadata) {
             this.absolutePath = Path.of(absolutePath);
+            this.documentId = this.absolutePath.toString().hashCode();
+            this.metadata = null;
             this.toc = null;
             if (extractMetadata)
             {
                 extractMetadata(); // org.apache.tika.metadata.Metadata: Initialize with empty metadata
                 extractToc();
             }
-            else
-                this.metadata = null;
         }
+
         // overloaded? constructor for loading the documents
         public LoadedDocument(int documentId) {
             this.documentId = documentId;
@@ -81,9 +81,7 @@ public class DocumentLoader {
             this.toc = null;
             this.metadata = null;
         }
-        public String getMetadataString(Metadata metadata) {
-            return this.metadata.toString();
-        }
+
         public void setIntexed(boolean indexed) {
             this.indexed = indexed;
         }
@@ -96,23 +94,9 @@ public class DocumentLoader {
         public String getFileName() {
             return absolutePath.getFileName().toString();
         }
-        public String getContent() {
-            return "content"; // Placeholder for actual content
-        }
         public Metadata getMetadata() {
             return metadata;
         }
-        public Map<String,String> getMetadataMap() {
-            Map<String,String> map = new HashMap<>();
-            if (metadata != null) {
-                String[] names = metadata.names();
-                for (String name : names) {
-                    map.put(name, metadata.get(name));
-                }
-            }
-            return map;
-        }
-
         private boolean extractMetadata() {
             Metadata metadata = new Metadata();
             ContentHandler handler = new BodyContentHandler(1);
@@ -216,42 +200,6 @@ public class DocumentLoader {
             this.toc = sb.toString();
             return true;
         }
-    }
-
-    //TODO
-    public List<LoadedDocument> loadDocumentListFromFolder() {
-        List<LoadedDocument> documents = new ArrayList<>();
-        if ( listFiles.isEmpty()) {
-            String errMsg = "Invalid folder path: " + folderPath;
-            System.err.println(errMsg);
-            LogMessages.logWarning(errMsg);
-            return documents;
-        }
-        for (Path path : listFiles) {
-            if (Files.exists(path) && Dirchat.isSupported(path)) {
-                try {
-                    Metadata metadata = new Metadata();
-                    int documentId = path.toAbsolutePath().toString().hashCode(); // IMPORTANT
-
-                    // TODO: Add toc and other metadata information. This information is also stored in the vector store.
-                    LoadedDocument loadedDoc = new LoadedDocument(
-                            documentId,
-                            path.toAbsolutePath().toString(),
-                            false);
-
-                    documents.add(loadedDoc);
-                    String msg = "Document loaded in list of LoadedDocuments: " + path.getFileName().toString();
-                    LogMessages.log(msg);
-                } catch (Exception e) {
-                    String errMsg = "Failed to parse: " + path.getFileName().toString();
-                    System.err.println(errMsg);
-                    LogMessages.logWarning(errMsg + ", reason: " + e.getMessage());
-                    e.printStackTrace();
-                    if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
-                }
-            }
-        }
-        return documents;
     }
 
 

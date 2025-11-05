@@ -132,7 +132,8 @@ public class StreamSplitter implements ContentHandler {
         }
 
         // Call to
-        double totalChunks = Math.ceil( (double) (this.document.getContent().length()) / (CHUNK_CHAR_LIMIT - CHUNK_OVERLAP) );
+        double totalChunks = 10_000;
+        System.out.println("DEBUG Total chunks: " + totalChunks);
         double progress = Math.min(chunkIndex.doubleValue() / (totalChunks), 1.0);
         Platform.runLater(() -> progressDialog.setFileProgress(progress));
         if (progressDialog.isCancelled() ) {

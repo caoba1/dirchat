@@ -107,10 +107,8 @@ public class VectorStore {
     // TODO: This is not a STORE!
     // Only this constructor is used to initialize the VectorStore with a specific folder
     public VectorStore(String selectedFolder) {
-        // Ensure .dirchat directory exists
         Path dirPath = Path.of(selectedFolder, Dirchat.DIRECTORY);
         this.sqliteDbPath = dirPath.resolve("vectorstore.db").toAbsolutePath();
-
         try {
             Files.createDirectories(dirPath);
             initSqliteDb();
@@ -296,7 +294,7 @@ public class VectorStore {
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
             String sql = "SELECT 1 FROM table_document WHERE document_id = ? LIMIT 1";
             try (java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setInt(1, document.documentId);
+                pstmt.setInt(1, document.getDocumentId());
                 try (java.sql.ResultSet rs = pstmt.executeQuery()) {
                     return rs.next();
                 }
@@ -328,13 +326,14 @@ public class VectorStore {
         return false;
     }
 
+    // Returns  the ids
     public List<DocumentLoader.LoadedDocument> loadIndexing() throws IOException {
         List<DocumentLoader.LoadedDocument> loadedDocs = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath.toString())) {
             String sql = "SELECT document_id FROM table_document";
             try (PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    int documentId = rs.getInt("id");
+                    int documentId = rs.getInt("document_id");
                     // todo: reconstruct toc and metadataMap from JSON
                     // todo: do we need all or just check documentId to what in the loaded folder is?
                     // remember: the metadataMap is not extracted yet in the list of loaded documents
@@ -389,7 +388,7 @@ public class VectorStore {
                 pstmtDoc.setInt(3, loadedDocument.getNumberPages());
                 pstmtDoc.setString(4, loadedDocument.getFileType());
                 pstmtDoc.setString(5, mapper.writeValueAsString(loadedDocument.getToc()));
-                pstmtDoc.setString(6, mapper.writeValueAsString(loadedDocument.getMetadataMap()));
+                pstmtDoc.setString(6, mapper.writeValueAsString(loadedDocument.getMetadata().toString()));
                 pstmtDoc.executeUpdate();
             }
         }
@@ -407,7 +406,7 @@ public class VectorStore {
                 pstmt.setInt(3, doc.getNumberPages());
                 pstmt.setString(4, doc.getFileType());
                 pstmt.setString(5, mapper.writeValueAsString(doc.getToc()));
-                pstmt.setString(6, mapper.writeValueAsString(doc.getMetadataMap()));
+                pstmt.setString(6, mapper.writeValueAsString(doc.getMetadata().toString()));
                 pstmt.executeUpdate();
             }
         }

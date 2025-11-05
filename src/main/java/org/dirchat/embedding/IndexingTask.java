@@ -7,20 +7,22 @@ import org.dirchat.document.StreamSplitter;
 import org.dirchat.util.Dirchat;
 import javafx.application.Platform;
 import java.io.File;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.ResourceBundle;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.dirchat.controller.ProgressDialog;
 import org.dirchat.util.LogMessages;
+import java.util.stream.Collectors;
 
 public class IndexingTask extends Task<Void> {
-    private final File folder; //DB file
+    private final File folder; //DB fil
+    //TODO: see implementation in DocumentLoader -> list files instead of directory. a list of paths!!! use walk!
     private final VectorStore vectorStore;
     private final ProgressDialog progressDialog;
     private List<DocumentLoader.LoadedDocument> loadedDocuments;
-    private final ResourceBundle messages = ResourceBundle.getBundle("messages");
+    private final Dirchat.ResourceBundleWrapper messages = new Dirchat.ResourceBundleWrapper("messages");
 
     public IndexingTask( VectorStore vectorStore, ProgressDialog progressDialog) {
         this.folder = vectorStore.getFolder().toFile();
@@ -37,14 +39,32 @@ public class IndexingTask extends Task<Void> {
             LogMessages.log("[Indexing] Task started");
             if (vectorStore.indexExists()) {
                 LogMessages.log("[Indexing] Index exists, loading from DB");
-                docs = vectorStore.loadIndexing();
+
+                // loading document ids
+                List<DocumentLoader.LoadedDocument> loadedDocs = vectorStore.loadIndexing();
+                TreeSet<Integer> documentIds = loadedDocs
+                        .stream()
+                        .map( doc -> doc.getDocumentId() )
+                        .collect( Collectors.toCollection( TreeSet::new ) );
+
+                Path folderPath = folder.getParentFile().toPath();
+                try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(folderPath)) {
+                    for (Path path : dirStream) {
+                        if (Dirchat.safeIsRegularFile(path) &&
+                            Dirchat.isSupported(path))
+                        {
+                            DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(
+                                    path.toAbsolutePath().toString(),
+                                    false);
+                            doc.setIntexed(documentIds.contains(doc.getDocumentId()));
+                            docs.add(doc);
+                        }
+                    }
+                }
+
                 updateMessage(messages.getString("status.indexLoaded"));
             } else {
                 LogMessages.log("[Indexing] Index does not exist or is not complete. Processing files");
-
-                //org.dirchat.document.DocumentLoader loader = new org.dirchat.document.DocumentLoader();
-                // TODO: Use DocumentLoader to get files.
-                //List<org.dirchat.document.DocumentLoader.LoadedDocument> docs = loader.loadDocument
 
                 File folderFileInstance = folder.getParentFile();
                 File[] files = folderFileInstance.listFiles();
@@ -76,10 +96,9 @@ public class IndexingTask extends Task<Void> {
                         // TODO: Add OCR, optical character recognition, for images and scanned PDFs
                         org.apache.tika.parser.ParseContext context = new org.apache.tika.parser.ParseContext();
 
-                        int documentId = file.getAbsolutePath().hashCode();
-                        DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(documentId,
-                                file.getAbsolutePath(), true);
-
+                        DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(
+                                file.getAbsolutePath(),
+                                true);
                         vectorStore.upsertLoadedDocument(doc); // Save in table_document
 
                         // Our custom ContentHandler that splits the stream into chunks and embeds them
@@ -92,9 +111,10 @@ public class IndexingTask extends Task<Void> {
                         try (java.io.InputStream stream = new java.io.FileInputStream(file)) {
                             parser.parse(stream, handler, metadata, context);
                         }
-                        docs.add(doc);
 
-                        Platform.runLater(() -> progressDialog.setFileProgress(0)); // Reset chunk progress bar
+                        doc.setIntexed(true);
+                        docs.add(doc);
+                        Platform.runLater(() -> progressDialog.setFileProgress(1));
                     }
                 }
                 updateMessage(messages.getString("status.indexLoaded"));
