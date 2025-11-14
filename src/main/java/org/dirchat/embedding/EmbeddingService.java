@@ -67,7 +67,7 @@ public class EmbeddingService {
         if (embeddingMethod.equalsIgnoreCase("default")) {
             // Not implemented: return null or throw exception
             LogMessages.log("Not implemented yet");
-            setMessageBar("Embedding method 'default' is not implemented yet. Please select 'sbert' or 'ollama'."); //TODO: messages.properties
+            setMessageBar(messages.getString("error.embeddingMethodNotImplemented"));
             return null;
         } else if (embeddingMethod.equalsIgnoreCase("sbert")) {
             methodEmbeddingModel = OllamaEmbeddingModel.builder()

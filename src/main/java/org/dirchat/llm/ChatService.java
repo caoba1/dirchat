@@ -13,6 +13,7 @@ import org.dirchat.util.ConfigManager;
 import org.dirchat.util.LogMessages;
 import org.dirchat.document.DocumentLoader.LoadedDocument;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -24,13 +25,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class ChatService {
+public class ChatService implements Closeable {
 
     private EmbeddingModel embeddingModel;
     private final LanguageModel languageModel;
     private final VectorStore vectorStore;
     private final List<LoadedDocument> documents;
-    private final UIController uiController;
+    public final UIController uiController;// WARNING
     private List<org.dirchat.document.TopChunkResult> topChunks;
 
     private static java.util.function.Consumer<String> messageBarSetter;
@@ -62,8 +63,51 @@ public class ChatService {
                     .modelName("mistral") // or [mistral, tinyllama] llama2, gemma, etc.
                     .timeout(Duration.ofMinutes(15))  // or even longer
                     .build();
+
+        verify();
     }
 
+    private void verify() {
+        if (vectorStore == null) {
+            throw new IllegalStateException("VectorStore is not initialized.");
+        }
+        if (embeddingModel == null) {
+            throw new IllegalStateException("EmbeddingModel is not initialized.");
+        }
+        if (languageModel == null) {
+            throw new IllegalStateException("LanguageModel is not initialized.");
+        }
+
+        // Attemp connection to vector store
+        if (!vectorStore.indexExists()) {
+            throw new IllegalStateException("Problem connecting to DB");
+        }
+
+        // Attempt tp cpnnect to the embedding model
+        try {
+            float[] testEmbedding = embeddingModel.embed("dirchat").content().vector();
+            if (testEmbedding == null || testEmbedding.length == 0) {
+                throw new IllegalStateException("Failed to get embedding from EmbeddingModel.");
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to connect to EmbeddingModel: " + e.getMessage(), e);
+        }
+
+        // Attempt to connect to the language model
+        try {
+            dev.langchain4j.model.output.Response<String> testResponse = languageModel.generate("dirchat test");
+            if (testResponse == null || testResponse.content() == null || testResponse.content().isEmpty()) {
+                throw new IllegalStateException("Failed to get response from LanguageModel.");
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to connect to LanguageModel: " + e.getMessage(), e);
+        }
+
+        LogMessages.log("ChatService initialized with embedding model: " +
+                embeddingModel.getClass().getSimpleName() +
+                " and language model: " +
+                languageModel.getClass().getSimpleName());
+    }
 
     // RAG
     public List<org.dirchat.document.TopChunkResult> getTopDocumentChunks(String question) {
@@ -89,8 +133,8 @@ public class ChatService {
         return results;
     }
 
-    public void findTopDocuments(String question) {
-        topChunks = getTopDocumentChunks(question);
+    public void findTopDocuments(String query) {
+        topChunks = getTopDocumentChunks(query);
         if (uiController != null && topChunks != null) {
             // Build a LinkedHashMap of documentId to score for UI
             java.util.LinkedHashMap<Integer, Double> topDocuments = new java.util.LinkedHashMap<>();
@@ -111,19 +155,17 @@ public class ChatService {
             }
         }
         String stringPrompt = "You are to answer the question based on the following file contents:\n";
-        String stringDocumentList = IntStream.range(0, topContent.size())
-                .mapToObj(i -> "`" + topContent.get(i) + "`")
-                .collect(Collectors.joining("\n"));
+        String stringDocumentList = IntStream.range(0, topContent.size()).mapToObj(i -> { return "`" + topContent.get(i) + "`";}).collect(Collectors.joining("\n"));
         stringPrompt += "\n" + stringDocumentList;
         stringPrompt += "\n\nThe question is:\n" + question;
 
         dev.langchain4j.model.output.Response<String> response = languageModel.generate(stringPrompt);
-        LogMessages.log("Raw response from language model: " + response);
-        try {
-            return response.content();
-        } catch (Exception parseEx) {
-            return "[Error parsing response]";
-        }
+        LogMessages.log("RE:" + response.content());
+    }
+
+    @Override
+    public void close() throws IOException {
+        LogMessages.log("ChatService closed.");
     }
 
     // Helper to retrieve chunk cursorPointer by chunkId from the database via VectorStore

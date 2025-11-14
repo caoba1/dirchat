@@ -168,6 +168,30 @@ public class UIController {
         });
         chatListView.getItems().clear();
         askButton.setDisable(true); // Disable until folder is loaded
+
+        // Wrap chat messages in chatListView
+        chatListView.setCellFactory(lv -> {
+            ListCell<String> cell = new ListCell<>() {
+                private final Label label = new Label();
+                {
+                    label.setWrapText(true);
+                    label.setMaxWidth(Double.MAX_VALUE);
+                }
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setGraphic(null);
+                    } else {
+                        label.setText(item);
+                        // Bind label width to listview width minus some padding
+                        label.maxWidthProperty().bind(chatListView.widthProperty().subtract(30));
+                        setGraphic(label);
+                    }
+                }
+            };
+            return cell;
+        });
     }
 
     // Called from LogMessages to update the message bar
@@ -252,7 +276,7 @@ public class UIController {
     }
 
     private void handleAskQuestion() {
-        String question = questionField.getText();
+        final String question = questionField.getText();
         if (question == null || question.isBlank()) {
             return;
         }
@@ -263,30 +287,32 @@ public class UIController {
 
         // TODO> Refactor to separate class. This may be a task.
 
-        String answer;
-        try {
-            ChatService chatService = new ChatService(vectorStore,
-                    loadedDocuments,
-                    this);
 
-            // Find documents and update their order
-            chatService.findTopDocuments(question); // Saves top documents
-
-            // Previous call calls setIndexStatusListItems internally on this UIController
-            answer = chatService.answerTopDocuments(question);
-
-            //answer = chatService.answerQuestion(question, ChatService.MAX_SEARCH_RESULTS);
-        } catch (Exception ex) {
-            LogMessages.logWarning(ex.getMessage());
-            answer = messages.getString("error.failedToAnswer");
-            setMessageBar(messages.getString("error.failedToAnswer") + ": " + ex.getMessage(), "red");
-        }
-
-        LogMessages.log(messages.getString("ANSWER").replace("{0}", answer));
-        chatListView.getItems().add(messages.getString("chat.question") + ": " + question);
-        chatListView.getItems().add(messages.getString("chat.answer") + ": " + answer);
-        questionField.clear();
-        mainBorderPane.setCursor(Cursor.DEFAULT);
+        // Controller saves the session, right?
+        javafx.concurrent.Task<String> askTask = new QueryAnswerTask(
+                vectorStore,
+                loadedDocuments,
+                question,
+                this);
+        askTask.setOnSucceeded(e -> {
+            mainBorderPane.setCursor(Cursor.DEFAULT);
+            String answer = askTask.getValue();
+            LogMessages.log("Responded" + answer);
+            chatListView.getItems().add(messages.getString("chat.question") + ": " + question);
+            chatListView.getItems().add(messages.getString("chat.answer") + ": " + answer);
+            questionField.clear();
+            mainBorderPane.setCursor(Cursor.DEFAULT);
+        });
+        askTask.setOnFailed(e -> {
+            mainBorderPane.setCursor(Cursor.DEFAULT);
+            LogMessages.log("Failed");
+        });
+        askTask.setOnCancelled(e -> {
+            mainBorderPane.setCursor(Cursor.DEFAULT);
+            LogMessages.log("Canceled");
+        });
+        mainBorderPane.setCursor(Cursor.WAIT);
+        futures.add(executorService.submit(askTask));
     }
 
     private void openDocument(DocumentLoader.LoadedDocument doc) {
@@ -420,11 +446,11 @@ public class UIController {
     private void exportChatHistory() {
         java.util.List<String> chat = chatListView.getItems();
         if (chat == null || chat.isEmpty()) {
-            setMessageBar("No chat history to export.");
+            setMessageBar(messages.getString("status.noChatHistoryToExport"));
             return;
         }
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Export Chat History");
+        fileChooser.setTitle(messages.getString("dialog.exportChatHistory.title"));
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files", "*.txt"));
         File file = fileChooser.showSaveDialog(new Stage());
         if (file != null) {
@@ -432,9 +458,9 @@ public class UIController {
                 for (String line : chat) {
                     out.println(line);
                 }
-                setMessageBar("Chat history exported to " + file.getAbsolutePath());
+                setMessageBar(messages.getString("status.chatHistoryExported").replace("{0}", file.getAbsolutePath()));
             } catch (Exception e) {
-                setMessageBar("Failed to export chat: " + e.getMessage());
+                setMessageBar(messages.getString("error.failedToExportChat").replace("{0}", e.getMessage()));
             }
         }
     }
