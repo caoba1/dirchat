@@ -163,4 +163,19 @@ public class ConfigManager {
             throw e;
         }
     }
+
+    // queryAnswer
+    public static boolean getQueryAnswer() {
+        return Boolean.parseBoolean(properties.getProperty("queryAnswer", "true"));
+    }
+    public static void setQueryAnswer(boolean value) throws IOException {
+        properties.setProperty("queryAnswer", Boolean.toString(value));
+        try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
+            properties.store(out, "Updated queryAnswer value");
+        } catch (IOException e) {
+            System.err.println("Failed to save config file: " + e.getMessage());
+            LogMessages.logWarning("Failed to save configuration file");
+            throw e;
+        }
+    }
 }

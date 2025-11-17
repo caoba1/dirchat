@@ -2,7 +2,6 @@ package org.dirchat.embedding;
 
 import javafx.concurrent.Task;
 import org.dirchat.document.DocumentLoader;
-import org.dirchat.document.Chunk;
 import org.dirchat.document.StreamSplitter;
 import org.dirchat.util.Dirchat;
 import javafx.application.Platform;
@@ -119,7 +118,7 @@ public class IndexingTask extends Task<Void> {
                 }
                 updateMessage(messages.getString("status.indexLoaded"));
             }
-            loadedDocuments = docs;
+            loadedDocuments = docs; // Todo: load at step
             LogMessages.log("[Indexing] Task completed");
         } catch (Exception e) {
             if (e instanceof java.net.ConnectException ||

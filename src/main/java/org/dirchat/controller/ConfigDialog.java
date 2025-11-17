@@ -97,6 +97,12 @@ public class ConfigDialog extends Stage {
             }
         });
 
+        Label queryAnswerLabel = new Label(bundle.getString("config.queryAnswer"));
+        queryAnswerLabel.setTooltip(new Tooltip(bundle.getString("config.queryAnswer.tooltip")));
+        javafx.scene.control.CheckBox queryAnswerCheckBox = new javafx.scene.control.CheckBox();
+        queryAnswerCheckBox.setSelected(ConfigManager.getQueryAnswer());
+        queryAnswerCheckBox.setTooltip(new Tooltip(bundle.getString("config.queryAnswer.tooltip")));
+
         Button saveButton = new Button(bundle.getString("button.saveConfig"));
         saveButton.setOnAction(event -> {
             try{
@@ -112,6 +118,7 @@ public class ConfigDialog extends Stage {
                     .map(java.util.Map.Entry::getKey)
                     .findFirst().orElse("none");
                 ConfigManager.setOutputMode(selectedMode);
+                ConfigManager.setQueryAnswer(queryAnswerCheckBox.isSelected());
                 close();
             } catch (Exception e) {
                 System.err.println("Failed to save configuration: " + e.getMessage());
@@ -137,20 +144,19 @@ public class ConfigDialog extends Stage {
         Label askButtonHelp = new Label(bundle.getString("config.askButtonHelp"));
         askButtonHelp.setWrapText(true);
 
-        VBox vbox = new VBox(10,
-                iconView != null ? iconView : new Label(),
-                languageLabel, languageComboBox,
-                askButtonHelp,
-                methodSelector,
-                paragraphsLabel, paragraphsField,
-                overlapLabel, overlapField,
-                ollamaUrlLabel, ollamaUrlField,
-                topKLabel, topKField,
-                outputModeLabel,
-                outputModeComboBox,
-                saveButton);
-        vbox.setPadding(new Insets(20));
-        setScene(new Scene(vbox, 300, 520));
+        VBox vbox = new VBox(12,
+            paragraphsLabel, paragraphsField,
+            overlapLabel, overlapField,
+            ollamaUrlLabel, ollamaUrlField,
+            topKLabel, topKField,
+            outputModeLabel, outputModeComboBox,
+            methodSelector,
+            languageLabel, languageComboBox,
+            queryAnswerLabel, queryAnswerCheckBox,
+            saveButton
+        );
+        vbox.setPadding(new Insets(18));
+        setScene(new Scene(vbox));
 
         // Tooltips for configuration options
         methodSelector.setTooltip(new Tooltip("Select the method used to generate document embeddings for search and retrieval."));

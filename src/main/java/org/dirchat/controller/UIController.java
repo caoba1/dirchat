@@ -8,14 +8,9 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
+import opennlp.tools.dictionary.Index;
 import org.dirchat.document.DocumentLoader;
 import org.dirchat.embedding.*;
-import org.dirchat.llm.ChatService;
-
-import java.util.concurrent.Future;
-import java.util.LinkedHashMap;
-
 import org.dirchat.util.LogMessages;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -26,7 +21,8 @@ import javafx.stage.Stage;
 import java.awt.*;
 import java.io.File;
 import java.util.List;
-import java.util.ResourceBundle;
+import java.util.concurrent.Future;
+import java.util.LinkedHashMap;
 import java.util.concurrent.Executors;
 
 import org.dirchat.util.Dirchat;
@@ -42,7 +38,14 @@ public class UIController {
     @FXML
     private Label folderLabel;
     @FXML
-    private ListView<org.dirchat.document.DocumentLoader.LoadedDocument> indexStatusList;
+    private TableView<DocumentLoader.LoadedDocument> indexStatusTable;
+    @FXML
+    private TableColumn<DocumentLoader.LoadedDocument, String> scoreColumn;
+    @FXML
+    private TableColumn<DocumentLoader.LoadedDocument, String> fileNameColumn;
+    @FXML
+    private TableColumn<DocumentLoader.LoadedDocument, Void> openColumn;
+
     @FXML
     private ListView<String> chatListView;
     @FXML
@@ -54,12 +57,6 @@ public class UIController {
     @FXML
     private Label indexLoadedIndicator;
     @FXML
-    private Label outputModeIndicator;
-    @FXML
-    private ComboBox<String> sortComboBox;
-    @FXML
-    private ComboBox<String> filterComboBox;
-    @FXML
     private Button exportChatButton;
     @FXML
     private Button resetChatButton;
@@ -68,7 +65,7 @@ public class UIController {
 
     private String selectedFolder;
     private VectorStore vectorStore;
-    private List<org.dirchat.document.DocumentLoader.LoadedDocument> loadedDocuments;
+    private List<DocumentLoader.LoadedDocument> loadedDocuments;
 
 
     private final java.util.concurrent.ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -101,96 +98,52 @@ public class UIController {
         configButton.setOnAction(e -> {
             ConfigDialog configDialog = new ConfigDialog((Stage) mainBorderPane.getScene().getWindow());
             configDialog.showAndWait();
-            updateOutputModeIndicator();
         });
-        updateOutputModeIndicator();
 
-        // Localized sort options
-        sortComboBox.getItems().addAll(
-            messages.getString("sort.name"),
-            messages.getString("sort.score"),
-            messages.getString("sort.date")
-        );
-        sortComboBox.setPromptText(messages.getString("prompt.sortBy"));
-        sortComboBox.setOnAction(e -> applySortAndFilter());
-
-        // Localized filter options
-        filterComboBox.getItems().addAll(
-            messages.getString("filter.all"),
-            messages.getString("filter.05"),
-            messages.getString("filter.07"),
-            messages.getString("filter.09")
-        );
-        filterComboBox.setPromptText(messages.getString("prompt.filterByScore"));
-        filterComboBox.setOnAction(e -> applySortAndFilter());
-
-
-        // Custom cell factory for indexStatusList (highlight selection)
-        indexStatusList.setCellFactory(listView -> new ListCell<>() {
+        // TableView setup for document list (now using LoadedDocument directly)
+        scoreColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(
+            String.format("%.2f", cellData.getValue().getScore())
+        ));
+        fileNameColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(
+            cellData.getValue().getFileName()
+        ));
+        openColumn.setCellFactory(col -> new TableCell<>() {
             private final Button openButton = new Button(messages.getString("button.openFile"));
-            private final Label scoreLabel = new Label();
-            private final HBox hbox = new HBox(8);
             {
-                openButton.setTooltip(new Tooltip(messages.getString("button.openFile.tooltip")));
                 openButton.setOnAction(e -> {
-                    org.dirchat.document.DocumentLoader.LoadedDocument doc = getItem();
-                    if (doc != null) {
-                        openDocument(doc);
-                    }
+                    DocumentLoader.LoadedDocument doc = getTableView().getItems().get(getIndex());
+                    openDocument(doc);
                 });
-                hbox.getChildren().addAll(scoreLabel, openButton);
             }
             @Override
-            protected void updateItem(org.dirchat.document.DocumentLoader.LoadedDocument doc, boolean empty) {
-                super.updateItem(doc, empty);
-                if (empty || doc == null) {
-                    setText(null);
-                    setGraphic(null);
-                    setStyle("");
-                } else {
-                    String scoreText = messages.getString("label.scoreNA");
-
-                    if (!doc.isIndexed())
-                    {
-                        scoreText = messages.getString("label.notIndexed");
-                    } else if (doc.getScore() > 0.0) {
-                        scoreText = String.format(messages.getString("label.scoreValue"), doc.getScore());
-                    }
-                    scoreLabel.setText(doc.getFileName() + " | " + scoreText);
-                    setGraphic(hbox);
-                    if (isSelected()) {
-                        setStyle("-fx-background-color: #cce6ff;");
-                    } else {
-                        setStyle("");
-                    }
-                }
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : openButton);
             }
         });
+
         chatListView.getItems().clear();
         askButton.setDisable(true); // Disable until folder is loaded
 
         // Wrap chat messages in chatListView
-        chatListView.setCellFactory(lv -> {
-            ListCell<String> cell = new ListCell<>() {
-                private final Label label = new Label();
-                {
-                    label.setWrapText(true);
-                    label.setMaxWidth(Double.MAX_VALUE);
+        chatListView.setCellFactory(lv -> new ListCell<>() {
+            private final Label label = new Label();
+            {
+                label.setWrapText(true);
+                label.setMaxWidth(Double.MAX_VALUE);
+            }
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setGraphic(null);
+                } else {
+                    label.setText(item);
+                    // Bind label width to listview width minus some padding
+                    label.maxWidthProperty().bind(chatListView.widthProperty().subtract(30));
+                    setGraphic(label);
                 }
-                @Override
-                protected void updateItem(String item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (empty || item == null) {
-                        setGraphic(null);
-                    } else {
-                        label.setText(item);
-                        // Bind label width to listview width minus some padding
-                        label.maxWidthProperty().bind(chatListView.widthProperty().subtract(30));
-                        setGraphic(label);
-                    }
-                }
-            };
-            return cell;
+            }
         });
     }
 
@@ -228,50 +181,43 @@ public class UIController {
         javafx.concurrent.Task<Void> loadTask = new IndexingTask( vectorStore, progressDialog );
         loadTask.setOnSucceeded(e -> {
             // UI  Updates are run on Platform thread
-            loadedDocuments = ((IndexingTask) loadTask).getLoadedDocuments();
+            loadedDocuments = ((IndexingTask)loadTask).getLoadedDocuments();
             Platform.runLater(() -> {
                 progressDialog.close();
                 mainBorderPane.setCursor(Cursor.DEFAULT);
                 folderLabel.setText(messages.getString("label.selectedFolder") + ": " + selectedFolder);
                 setMessageBar(messages.getString("status.indexLoaded"));
-                indexStatusList.getItems().clear();
-                indexStatusList.getItems().addAll(loadedDocuments);
+                indexStatusTable.getItems().clear();
+                indexStatusTable.getItems().addAll(loadedDocuments);
                 askButton.setDisable(false);
-                updateIndexLoadedIndicator(UIController.IndexStatus.LOADED);
+                updateIndexLoadedIndicator(IndexStatus.LOADED);
             });
         });
-        loadTask.setOnCancelled(e -> {
-            Platform.runLater(() -> {
-                progressDialog.close();
-                mainBorderPane.setCursor(Cursor.DEFAULT);
-                setMessageBar(messages.getString("status.folderLoadCancelled"));
-                updateIndexLoadedIndicator(UIController.IndexStatus.NOT_SELECTED);
-
-            });
-        });
-        loadTask.setOnFailed(e -> {
-            Platform.runLater(() -> {
-                progressDialog.close();
-                mainBorderPane.setCursor(Cursor.DEFAULT);
-                setMessageBar(messages.getString("status.indexSaveFailed"));
-                updateIndexLoadedIndicator(UIController.IndexStatus.FAILED);
-            });
-        });
+        loadTask.setOnCancelled(e -> Platform.runLater(() -> {
+            progressDialog.close();
+            mainBorderPane.setCursor(Cursor.DEFAULT);
+            setMessageBar(messages.getString("status.folderLoadCancelled"));
+            updateIndexLoadedIndicator(IndexStatus.NOT_SELECTED);
+        }));
+        loadTask.setOnFailed(e -> Platform.runLater(() -> {
+            progressDialog.close();
+            mainBorderPane.setCursor(Cursor.DEFAULT);
+            setMessageBar(messages.getString("status.indexSaveFailed"));
+            updateIndexLoadedIndicator(IndexStatus.FAILED);
+        }));
 
         futures.add(executorService.submit(loadTask));
     }
 
     public void handleReset() {
         chatListView.getItems().clear();
-        indexStatusList.getItems().clear();
-        indexStatusList.getItems().addAll(loadedDocuments);
+        indexStatusTable.getItems().clear();
+        indexStatusTable.getItems().addAll(loadedDocuments);
         setMessageBar(messages.getString("status.chatReset"));
     }
 
     public void shutdown() {
-        for (Future<?> future : futures) {
-            future.cancel(true);
-        }
+        for (Future<?> future : futures) future.cancel(true);
         executorService.shutdownNow();
     }
 
@@ -329,9 +275,9 @@ public class UIController {
         setMessageBar("");
     }
 
-    public void setIndexStatusListItems(List<DocumentLoader.LoadedDocument> docs) {
-        if (indexStatusList != null) {
-            indexStatusList.getItems().setAll(docs);
+    public void setDocumentListItems(List<DocumentLoader.LoadedDocument> docs) {
+        if (indexStatusTable != null) {
+            indexStatusTable.getItems().setAll(docs);
         }
     }
 
@@ -342,14 +288,14 @@ public class UIController {
     public void updateTopDocuments(LinkedHashMap<Integer, Double> topScores) {
         if (loadedDocuments == null || topScores == null || topScores.isEmpty()) return;
         // Map documentId to LoadedDocument for fast lookup
-        java.util.Map<Integer, org.dirchat.document.DocumentLoader.LoadedDocument> docMap = new java.util.HashMap<>();
-        for (org.dirchat.document.DocumentLoader.LoadedDocument doc : loadedDocuments) {
+        java.util.Map<Integer, DocumentLoader.LoadedDocument> docMap = new java.util.HashMap<>();
+        for (DocumentLoader.LoadedDocument doc : loadedDocuments) {
             docMap.put(doc.getDocumentId(), doc);
         }
         // Build new ordered list
-        java.util.List<org.dirchat.document.DocumentLoader.LoadedDocument> orderedDocs = new java.util.ArrayList<>();
+        java.util.List<DocumentLoader.LoadedDocument> orderedDocs = new java.util.ArrayList<>();
         for (java.util.Map.Entry<Integer, Double> entry : topScores.entrySet()) {
-            org.dirchat.document.DocumentLoader.LoadedDocument doc = docMap.get(entry.getKey());
+            DocumentLoader.LoadedDocument doc = docMap.get(entry.getKey());
             if (doc != null) {
                 doc.setScore(entry.getValue());
                 orderedDocs.add(doc);
@@ -357,7 +303,7 @@ public class UIController {
         }
         // Update loadedDocuments and UI
         //loadedDocuments = orderedDocs;
-        setIndexStatusListItems(orderedDocs);
+        setDocumentListItems(orderedDocs);
     }
 
     // In UIController.java
@@ -384,63 +330,6 @@ public class UIController {
                 indexLoadedIndicator.setVisible(true);
                 break;
         }
-    }
-
-    private void updateOutputModeIndicator() {
-        String mode = org.dirchat.util.ConfigManager.getOutputMode();
-        String localized;
-        switch (mode) {
-            case "truncate":
-                localized = messages.getString("output.mode.truncate");
-                break;
-            case "summarize":
-                localized = messages.getString("output.mode.summarize");
-                break;
-            default:
-                localized = messages.getString("output.mode.none");
-        }
-        if (outputModeIndicator != null) {
-            outputModeIndicator.setText(messages.getString("output.mode") + ": " + localized);
-        }
-    }
-
-    private void applySortAndFilter() {
-        if (loadedDocuments == null) return;
-        final List<org.dirchat.document.DocumentLoader.LoadedDocument> docs = new java.util.ArrayList<>(loadedDocuments);
-        // Filter
-        String filter = filterComboBox.getValue();
-        if (filter != null && !filter.equals("All")) {
-            final double threshold;
-            if (filter.equals("> 0.5")) threshold = 0.5;
-            else if (filter.equals("> 0.7")) threshold = 0.7;
-            else if (filter.equals("> 0.9")) threshold = 0.9;
-            else threshold = 0.0;
-            docs.removeIf(doc -> {
-                try {
-                    return Double.parseDouble(doc.metadata.get("score")) <= threshold;
-                } catch (Exception e) {
-                    return true;
-                }
-            });
-        }
-        // Sort
-        String sort = sortComboBox.getValue();
-        if (sort != null) {
-            switch (sort) {
-                case "Name" -> docs.sort(java.util.Comparator.comparing(d -> d.getFileName()));
-                case "Score" -> docs.sort((a, b) -> {
-                    try {
-                        double sa = Double.parseDouble(a.metadata.get("score"));
-                        double sb = Double.parseDouble(b.metadata.get("score"));
-                        return Double.compare(sb, sa);
-                    } catch (Exception e) {
-                        return 0;
-                    }
-                });
-                case "Date" -> docs.sort(java.util.Comparator.comparing(d -> d.metadata.get("date"), java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
-            }
-        }
-        setIndexStatusListItems(docs);
     }
 
     private void exportChatHistory() {

@@ -3,8 +3,6 @@ package org.dirchat.llm;
 import org.dirchat.controller.UIController;
 import org.dirchat.embedding.EmbeddingService; //todo: just use vector store directly
 import org.dirchat.embedding.VectorStore;
-import org.dirchat.document.ScoredChunk;
-import org.dirchat.document.Chunk;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
 import dev.langchain4j.model.language.LanguageModel;
@@ -15,13 +13,11 @@ import org.dirchat.document.DocumentLoader.LoadedDocument;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -34,10 +30,6 @@ public class ChatService implements Closeable {
     public final UIController uiController;// WARNING
     private List<org.dirchat.document.TopChunkResult> topChunks;
 
-    private static java.util.function.Consumer<String> messageBarSetter;
-
-    public static final int DOCUMENT_RANK = 5;
-    public static final int MAX_SEARCH_RESULTS = 5;
 
     public ChatService(VectorStore vectorStore, List<LoadedDocument> documents, UIController uiController) {
         this.vectorStore = vectorStore;
@@ -123,11 +115,9 @@ public class ChatService implements Closeable {
             results = vectorStore.compoundSearchWithScores(queryVector, topK);
         } catch (IOException e) {
             LogMessages.logWarning("Failed to search vector store (I/O): " + e.getMessage());
-            if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
             throw new RuntimeException(e);
         } catch (SQLException e) {
             LogMessages.logWarning("Failed to search vector store (SQL): " + e.getMessage());
-            if (messageBarSetter != null) messageBarSetter.accept("Error: " + e.getMessage());
             throw new RuntimeException(e);
         }
         return results;
@@ -160,7 +150,10 @@ public class ChatService implements Closeable {
         stringPrompt += "\n\nThe question is:\n" + question;
 
         dev.langchain4j.model.output.Response<String> response = languageModel.generate(stringPrompt);
-        LogMessages.log("RE:" + response.content());
+        // Obtain response
+        String answer = response.content();
+        LogMessages.log("RE:" + answer);
+        return answer;
     }
 
     @Override

@@ -2,13 +2,12 @@ package org.dirchat.embedding;
 
 import javafx.concurrent.Task;
 import org.dirchat.controller.UIController;
-import org.dirchat.llm.ChatService;
+import org.dirchat.llm.ChatService; // TODO: divide in two
+import org.dirchat.util.ConfigManager;
 import org.dirchat.util.Dirchat;
 import org.dirchat.util.LogMessages;
-import org.dirchat.controller.UIController;
 import java.util.List;
 import org.dirchat.document.DocumentLoader;
-
 
 public class QueryAnswerTask extends Task<String>{
     String answer = "";
@@ -34,9 +33,12 @@ public class QueryAnswerTask extends Task<String>{
             String query = question;
             chatService.findTopDocuments(query); // Saves top documents
             // Previous call calls setIndexStatusListItems internally on this UIController
-            answer = chatService.answerTopDocuments(question);
-
-            //answer = chatService.answerQuestion(question, ChatService.MAX_SEARCH_RESULTS);
+            if (ConfigManager.getQueryAnswer()) {
+                answer = chatService.answerTopDocuments(question);
+            }
+            else {
+                answer = messages.getString("info.queryAnswerDisabled");
+            }
         } catch (Exception ex) {
             LogMessages.logWarning(ex.getMessage());
             answer = messages.getString("error.failedToAnswer");

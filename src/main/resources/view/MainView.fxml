@@ -14,6 +14,8 @@
 <?import javafx.scene.control.SplitPane?>
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TableColumn?>
 <BorderPane fx:id="mainBorderPane"
             xmlns="http://javafx.com/javafx/24.0.1"
             xmlns:fx="http://javafx.com/fxml/1"
@@ -37,10 +39,16 @@
             <VBox spacing="8" style="-fx-background-color: #f8fbff; -fx-padding: 10;">
                 <Label fx:id="foundFilesLabel" style="-fx-font-size: 14; -fx-font-weight: bold;" />
                 <HBox spacing="6">
-                    <ComboBox fx:id="sortComboBox" promptText="Sort by" focusTraversable="true" />
-                    <ComboBox fx:id="filterComboBox" promptText="Filter by score" focusTraversable="true" />
+                    <!-- Removed sortComboBox and filterComboBox -->
                 </HBox>
-                <ListView fx:id="indexStatusList" prefWidth="220" focusTraversable="true" />
+                <TableView fx:id="indexStatusTable" prefWidth="400" focusTraversable="true">
+                    <columns>
+                        <TableColumn fx:id="scoreColumn" text="Score" prefWidth="80"/>
+                        <TableColumn fx:id="fileNameColumn" text="File Name" prefWidth="220"/>
+                        <TableColumn fx:id="openColumn" text="Open" prefWidth="80"/>
+                    </columns>
+                </TableView>
+                <!--ListView fx:id="indexStatusList" prefWidth="220" focusTraversable="true" /-->
             </VBox> <!-- Second box in SplitPane is the right hand side -->
             <VBox spacing="10" style="-fx-padding: 20;">
                 <VBox spacing="10">

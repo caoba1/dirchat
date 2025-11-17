@@ -34,7 +34,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 
 // TODO: Make chunk a record
-
+// TODO: NOT IN USE?
 public class Chunk {
 
     private final String sourceFile;
