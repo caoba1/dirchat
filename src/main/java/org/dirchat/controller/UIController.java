@@ -101,9 +101,24 @@ public class UIController {
         });
 
         // TableView setup for document list (now using LoadedDocument directly)
-        scoreColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(
-            String.format("%.2f", cellData.getValue().getScore())
-        ));
+        scoreColumn.setCellValueFactory(cellData -> {
+            Double score = cellData.getValue().getScore();
+            if (score == null) return new javafx.beans.property.SimpleStringProperty("");
+            return new javafx.beans.property.SimpleStringProperty(String.format("%.2f", score));
+        });
+        // Set cell factory to gray out empty scores
+        scoreColumn.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(item);
+                if (empty || item == null || item.isBlank()) {
+                    setStyle("-fxext-fill: gray;");
+                } else {
+                    setStyle("");
+                }
+            }
+        });
         fileNameColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(
             cellData.getValue().getFileName()
         ));
@@ -175,7 +190,6 @@ public class UIController {
 
         ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), messages.getString("progress.indexingDocuments"));
         progressDialog.show();
-
         mainBorderPane.setCursor(Cursor.WAIT);
 
         javafx.concurrent.Task<Void> loadTask = new IndexingTask( vectorStore, progressDialog );
@@ -297,12 +311,12 @@ public class UIController {
         for (java.util.Map.Entry<Integer, Double> entry : topScores.entrySet()) {
             DocumentLoader.LoadedDocument doc = docMap.get(entry.getKey());
             if (doc != null) {
+                System.out.println("Updating doc ID " + entry.getKey() + " with score " + entry.getValue());
                 doc.setScore(entry.getValue());
                 orderedDocs.add(doc);
             }
         }
-        // Update loadedDocuments and UI
-        //loadedDocuments = orderedDocs;
+        // Only show retrieved documents
         setDocumentListItems(orderedDocs);
     }
 

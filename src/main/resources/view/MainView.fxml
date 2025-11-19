@@ -43,8 +43,8 @@
                 </HBox>
                 <TableView fx:id="indexStatusTable" prefWidth="400" focusTraversable="true">
                     <columns>
-                        <TableColumn fx:id="scoreColumn" text="Score" prefWidth="80"/>
                         <TableColumn fx:id="fileNameColumn" text="File Name" prefWidth="220"/>
+                        <TableColumn fx:id="scoreColumn" text="Score" prefWidth="80"/>
                         <TableColumn fx:id="openColumn" text="Open" prefWidth="80"/>
                     </columns>
                 </TableView>

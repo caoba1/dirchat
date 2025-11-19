@@ -39,6 +39,9 @@ public class QueryAnswerTask extends Task<String>{
             else {
                 answer = messages.getString("info.queryAnswerDisabled");
             }
+            String citations = chatService.getTopDocumentCitations();
+            citations = "\n\n" + messages.getString("info.citationsHeader") + "\n" + citations;
+            answer = answer.concat(citations);
         } catch (Exception ex) {
             LogMessages.logWarning(ex.getMessage());
             answer = messages.getString("error.failedToAnswer");

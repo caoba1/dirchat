@@ -16,12 +16,14 @@ import org.dirchat.util.Dirchat;
 
 public class EmbeddingService {
 
-    public static final String BASE_URL = ConfigManager.getOllamaBaseUrl();
+    //public static final String BASE_URL = ConfigManager.getOllamaBaseUrl();
     public static final int MAX_CHUNKS = 10;
+
     // TODO
     private static final ExecutorService SERVICE_EXECUTOR = Executors.newFixedThreadPool(
             Math.max(2, Runtime.getRuntime().availableProcessors()));
     private final String baseUrl;
+
     private EmbeddingModel embeddingModel;
     private final String embeddingMethod;
 
@@ -40,13 +42,23 @@ public class EmbeddingService {
     }
 
     // Provides a tokenizer and the embedding model based on the embedding method
-    public EmbeddingService() {
-        this(BASE_URL, ConfigManager.getIndexingMethod());
+    //public EmbeddingService() {
+    //    this(BASE_URL, ConfigManager.getIndexingMethod());
+    //}
+    public String getBaseUrl() {
+        return baseUrl;
     }
-    private EmbeddingService(String baseUrl, String embeddingMethod) {
+
+
+    public EmbeddingService(String baseUrl, String embeddingMethod) {
         this.baseUrl = baseUrl;
         this.embeddingMethod = embeddingMethod;
-        this.embeddingModel = getMethodEmbeddingModel(this.embeddingMethod); //TODO: messages.properties
+        try
+        {
+            this.embeddingModel = getMethodEmbeddingModel(this.embeddingMethod); //TODO: messages.properties
+        } catch (RuntimeException e) {
+            LogMessages.logWarning("Failed initializing embedding model: " + e.getMessage());
+        }
     }
 
     // Generates embeddings for a single text chunk
@@ -71,7 +83,7 @@ public class EmbeddingService {
             return null;
         } else if (embeddingMethod.equalsIgnoreCase("sbert")) {
             methodEmbeddingModel = OllamaEmbeddingModel.builder()
-                    .baseUrl(EmbeddingService.BASE_URL)
+                    .baseUrl(baseUrl)
                     .modelName("all-minilm:33m")
                     .build();
             //TODO: messages.properties
@@ -81,7 +93,7 @@ public class EmbeddingService {
             //TODO: messages.properties
         } else if (embeddingMethod.equalsIgnoreCase("tinyllama")) {
             methodEmbeddingModel = OllamaEmbeddingModel.builder()
-                    .baseUrl(EmbeddingService.BASE_URL)
+                    .baseUrl(baseUrl)
                     .modelName("tinyllama")
                     .build();
             //TODO: messages.properties

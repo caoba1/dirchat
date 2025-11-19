@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class StreamSplitter implements ContentHandler {
-    private static final long CHUNK_SIZE_LIMIT = 1024*1024; // 1 MB
     private static final int CHUNK_CHAR_LIMIT = ConfigManager.getChunkCharacterLimit(); // 10,000 characters
     private static final int CHUNK_OVERLAP = ConfigManager.getOverlapCharacters(); // 200 characters
 
@@ -37,6 +36,8 @@ public class StreamSplitter implements ContentHandler {
     private final Integer targetChunkIndex;
     private String extractedChunk = null;
     private boolean extractionMode = false;
+    private long totalChunks;
+    private AtomicInteger currentPageNumber = new AtomicInteger(0);
 
     public StreamSplitter(EmbeddingService embeddingService,
                           VectorStore vectorStore,
@@ -49,6 +50,7 @@ public class StreamSplitter implements ContentHandler {
         this.targetCursorPointer = null;
         this.targetChunkIndex = null;
         this.extractionMode = false;
+        this.totalChunks = this.document.getCharCount()/(CHUNK_CHAR_LIMIT - CHUNK_OVERLAP) + 1;
     }
 
     // Constructor for extraction by cursorPointer
@@ -80,8 +82,15 @@ public class StreamSplitter implements ContentHandler {
     private String overlapBuffer = "";
 
     private void processChunk(String thisChunk) {
-        lastChunk = thisChunk;
 
+        // First check for the page number
+        for (int i = 0; i < thisChunk.length(); i++) {
+            if (thisChunk.charAt(i) == '\f') {
+                currentPageNumber.getAndIncrement(); //BUT NOT FOR PDF
+            }
+        }
+
+        lastChunk = thisChunk;
         // Update overlapBuffer with the last CHUNK_OVERLAP characters
         if (thisChunk.length() >= CHUNK_OVERLAP) {
             overlapBuffer = thisChunk.substring(thisChunk.length() - CHUNK_OVERLAP);
@@ -106,6 +115,7 @@ public class StreamSplitter implements ContentHandler {
 
         // Indexing mode: process and store chunk
         dirchatStoreChunk(thisChunk);
+
         cursorPointer.addAndGet(thisChunk.length() - CHUNK_OVERLAP);
         // For demonstration, we just print the chunk size
         System.out.println("Processed chunk of size: " + thisChunk.length());
@@ -132,14 +142,11 @@ public class StreamSplitter implements ContentHandler {
         }
 
         // Call to
-        double totalChunks = 10_000;
-        System.out.println("DEBUG Total chunks: " + totalChunks);
         double progress = Math.min(chunkIndex.doubleValue() / (totalChunks), 1.0);
         Platform.runLater(() -> progressDialog.setFileProgress(progress));
         if (progressDialog.isCancelled() ) {
             LogMessages.logWarning("[Indexing] Cancelled by user (after embedding chunk)");
         }
-
         return true;
     }
 
@@ -150,16 +157,12 @@ public class StreamSplitter implements ContentHandler {
 
         // Check if the current chunk exceeds the maximum size
         while (currentChunk.length() >= CHUNK_CHAR_LIMIT) {
-
             // 1. Get the segment that fits the chunk size (1024)
             String chunkToProcess = currentChunk.substring(0, CHUNK_CHAR_LIMIT);
-
             // 2. Prepend the overlap from the *previous* chunk (if it exists)
             String finalChunk = overlapBuffer + chunkToProcess;
-
             // 3. Process the full chunk, which also updates the overlapBuffer
             processChunk(finalChunk);
-
             // 4. Remove the processed segment (up to CHUNK_SIZE minus the overlap)
             //    from the front of the currentChunk buffer to start the next chunk.
             currentChunk.delete(0, CHUNK_CHAR_LIMIT - CHUNK_OVERLAP);

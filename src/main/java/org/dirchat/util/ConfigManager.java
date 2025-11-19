@@ -178,4 +178,25 @@ public class ConfigManager {
             throw e;
         }
     }
+
+    // minScore
+    public static double getMinScore() {
+        String value = properties.getProperty("indexing.minScore", "0.0");
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            LogMessages.logWarning("Invalid minScore value in config.properties, using default 0.0");
+            return 0.0;
+        }
+    }
+    public static void setMinScore(double minScore) throws IOException {
+        properties.setProperty("indexing.minScore", String.valueOf(minScore));
+        try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
+            properties.store(out, "Updated minScore value");
+        } catch (IOException e) {
+            System.err.println("Failed to save config file: " + e.getMessage());
+            LogMessages.logWarning("Failed to save configuration file");
+            throw e;
+        }
+    }
 }

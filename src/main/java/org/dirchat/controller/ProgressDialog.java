@@ -1,5 +1,7 @@
 package org.dirchat.controller;
 
+import org.dirchat.util.Dirchat;
+
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -16,7 +18,7 @@ public class ProgressDialog {
     private final ProgressBar progressBar;
     private final Label fileLabel;
     private final ProgressBar fileProgressBar;
-    private final java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("messages");
+    private final Dirchat.ResourceBundleWrapper messages = new Dirchat.ResourceBundleWrapper("messages");
     private boolean cancelled = false;
     private final Button cancelButton;
 
@@ -24,7 +26,7 @@ public class ProgressDialog {
         dialogStage = new Stage();
         dialogStage.initOwner(owner);
         dialogStage.initModality(Modality.APPLICATION_MODAL);
-        dialogStage.setTitle(bundle.getString("progress.title"));
+        dialogStage.setTitle(messages.getString("progress.title"));
 
         messageLabel = new Label(initialMessage);
         fileLabel = new Label("");
@@ -33,7 +35,8 @@ public class ProgressDialog {
         fileProgressBar = new ProgressBar(0);
         fileProgressBar.setPrefWidth(300);
 
-        cancelButton = new Button(bundle.getString("progress.cancel"));
+
+        cancelButton = new Button(messages.getString("progress.cancel"));
         cancelButton.setOnAction(e -> {
             cancelled = true;
             close();

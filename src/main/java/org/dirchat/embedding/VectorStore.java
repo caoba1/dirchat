@@ -49,6 +49,7 @@ import org.dirchat.document.Chunk;
 import org.dirchat.document.ScoredChunk;
 import org.dirchat.util.Dirchat;
 import org.dirchat.util.LogMessages;
+import org.dirchat.util.ConfigManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -268,7 +269,9 @@ public class VectorStore {
                     String embeddingJson = rs.getString("embedding_vector");
                     List<Double> vector = mapper.readValue(embeddingJson, new com.fasterxml.jackson.core.type.TypeReference<List<Double>>() {});
                     double score = cosineSimilarity(queryVector, vector);
-                    results.add(new org.dirchat.document.TopChunkResult(documentId, chunkId, score));
+                    if ( true | score > ConfigManager.getMinScore() ) {
+                        results.add(new org.dirchat.document.TopChunkResult(documentId, chunkId, score));
+                    }
                 }
             }
         }

@@ -18,6 +18,7 @@ import org.xml.sax.ContentHandler;
 //import java.io.FileInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
 import java.util.*;
@@ -61,6 +62,8 @@ public class DocumentLoader {
         private boolean indexed = false;
         private int numberOfPages = 0;// Whether this document has been indexed
         private double score = 0.0;
+        private long estCharCount = 0;
+
 
         public LoadedDocument(String absolutePath, boolean extractMetadata) {
             this.absolutePath = Path.of(absolutePath);
@@ -174,6 +177,17 @@ public class DocumentLoader {
         public double getScore() {
             return this.score;
         }
+
+
+        public long getCharCount() {
+            try {
+                return (long) (Files.size(absolutePath)/1.5);
+            } catch (IOException e) {
+                LogMessages.logWarning("Failed to get file size for character count estimation: " + e.getMessage());
+                return 0L;
+            }
+        }
+
 
         private boolean extractPdfToc() {
             StringBuilder sb = new StringBuilder();

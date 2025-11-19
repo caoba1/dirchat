@@ -13,6 +13,7 @@ import org.dirchat.document.DocumentLoader.LoadedDocument;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.dirchat.util.ConfigManager;
 
 public class ChatService implements Closeable {
 
@@ -36,22 +38,23 @@ public class ChatService implements Closeable {
         this.documents = documents;
         this.uiController = uiController;
 
+        // Todo> Initialize the embedding model based on configuration and store here.
         String indexingMethod = ConfigManager.getIndexingMethod();
         if (indexingMethod.equalsIgnoreCase("sbert")) {
             this.embeddingModel = OllamaEmbeddingModel.builder()
-                .baseUrl(EmbeddingService.BASE_URL)
+                .baseUrl(ConfigManager.getOllamaBaseUrl())
                 .modelName("all-minilm:33m") // or other SBERT model, tinyllama
                 .build();
         } else {
             this.embeddingModel = OllamaEmbeddingModel.builder()
-                    .baseUrl(EmbeddingService.BASE_URL)
+                    .baseUrl(ConfigManager.getOllamaBaseUrl())
                     .modelName("tinyllama") // or mistral, llama2, gemma, etc.
                     .build();
         }
 
         // Initialize the language model
         this.languageModel = OllamaLanguageModel.builder()
-                    .baseUrl(EmbeddingService.BASE_URL)
+                    .baseUrl(ConfigManager.getOllamaBaseUrl())
                     .modelName("mistral") // or [mistral, tinyllama] llama2, gemma, etc.
                     .timeout(Duration.ofMinutes(15))  // or even longer
                     .build();
@@ -109,10 +112,9 @@ public class ChatService implements Closeable {
         {
             queryVector.add((double) v);
         }
-        int topK = org.dirchat.util.ConfigManager.getTopK();
         List<org.dirchat.document.TopChunkResult> results = null;
         try {
-            results = vectorStore.compoundSearchWithScores(queryVector, topK);
+            results = vectorStore.compoundSearchWithScores(queryVector, ConfigManager.getTopK());
         } catch (IOException e) {
             LogMessages.logWarning("Failed to search vector store (I/O): " + e.getMessage());
             throw new RuntimeException(e);
@@ -149,6 +151,8 @@ public class ChatService implements Closeable {
         stringPrompt += "\n" + stringDocumentList;
         stringPrompt += "\n\nThe question is:\n" + question;
 
+
+        LogMessages.log("Q:" + stringPrompt);
         dev.langchain4j.model.output.Response<String> response = languageModel.generate(stringPrompt);
         // Obtain response
         String answer = response.content();
@@ -205,5 +209,23 @@ public class ChatService implements Closeable {
             throw new RuntimeException("Failed to read prompt file from resources", e);
         }
         return startPromptCache;
+    }
+
+    public String getTopDocumentCitations() {
+        List<String> filePaths = new ArrayList<>();
+        for (org.dirchat.document.TopChunkResult tcr : topChunks) {
+            int documentId = tcr.getDocumentId();
+            String sourceFilePath = vectorStore.getDocumentPathById(documentId);
+            if (sourceFilePath != null) {
+                filePaths.add( Paths.get(vectorStore.getDocumentPathById(documentId)).getFileName().toString());
+            }
+        }
+
+        String citations = IntStream.range(1, filePaths.size() + 1)
+                .mapToObj(i -> "[" + i + "] " + filePaths.get(i - 1))
+                .collect(Collectors.joining("\n"));
+
+
+        return citations.toString();
     }
 }

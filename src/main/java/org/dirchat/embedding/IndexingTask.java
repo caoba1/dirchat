@@ -3,6 +3,7 @@ package org.dirchat.embedding;
 import javafx.concurrent.Task;
 import org.dirchat.document.DocumentLoader;
 import org.dirchat.document.StreamSplitter;
+import org.dirchat.util.ConfigManager;
 import org.dirchat.util.Dirchat;
 import javafx.application.Platform;
 import java.io.File;
@@ -55,7 +56,7 @@ public class IndexingTask extends Task<Void> {
                             DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(
                                     path.toAbsolutePath().toString(),
                                     false);
-                            doc.setIntexed(documentIds.contains(doc.getDocumentId()));
+                            doc.setIntexed(documentIds.contains(doc.getDocumentId())); // non-indexed documents may be updated later
                             docs.add(doc);
                         }
                     }
@@ -71,7 +72,10 @@ public class IndexingTask extends Task<Void> {
                         .filter( (File f) -> f.isFile() )
                         .count();
                 AtomicInteger count = new AtomicInteger(0);
-                EmbeddingService embeddingService = new EmbeddingService();
+                EmbeddingService embeddingService = new EmbeddingService(
+                        ConfigManager.getOllamaBaseUrl(),
+                        ConfigManager.getIndexingMethod()
+                );
                 for (File file : files) {
                     if (progressDialog.isCancelled() || isCancelled()) {
                         LogMessages.log("[Indexing] Cancelled by user (file loop)");
