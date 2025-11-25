@@ -58,6 +58,21 @@ public class MainApp extends Application {
         Image dirchatLogo = new Image(runtimeClass.getResourceAsStream("/icons/dirchat-logo.png"));
         mainStage.getIcons().add( dirchatLogo);
         mainStage.setScene(scene);
+
+        // Set window size to 3/5 of screen width, maintain aspect ratio
+        javafx.geometry.Rectangle2D screenBounds = javafx.stage.Screen.getPrimary().getBounds();
+        double screenWidth = screenBounds.getWidth();
+        double screenHeight = screenBounds.getHeight();
+        double aspectRatio = screenWidth / screenHeight;
+        double windowWidth = screenWidth * 0.6;
+        double windowHeight = windowWidth / aspectRatio;
+        mainStage.setWidth(windowWidth);
+        mainStage.setHeight(windowHeight);
+        mainStage.centerOnScreen();
+
+        // Set bright background color for the scene
+        scene.getRoot().setStyle("-fx-background-color: #f8fbff;");
+
         mainStage.show();
 
 

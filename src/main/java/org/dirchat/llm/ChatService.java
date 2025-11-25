@@ -180,6 +180,8 @@ public class ChatService implements Closeable {
             org.dirchat.document.StreamSplitter splitter = new org.dirchat.document.StreamSplitter((int)cursorPointer);
             try (java.io.InputStream stream = new java.io.FileInputStream(sourceFilePath)) {
                 parser.parse(stream, splitter, metadata, context);
+            } finally {
+                LogMessages.log("Reader FileInputStream closed at line 85");
             }
             return splitter.getExtractedChunk();
         } catch (Exception e) {
@@ -204,6 +206,8 @@ public class ChatService implements Closeable {
                     throw new RuntimeException("prompt.txt not found in resources");
                 }
                 startPromptCache = new String(is.readAllBytes()).trim();
+            } finally {
+                LogMessages.log("Reader InputStream closed at line 210");
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to read prompt file from resources", e);

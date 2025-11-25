@@ -60,6 +60,8 @@ public class UIController {
     private Button exportChatButton;
     @FXML
     private Button resetChatButton;
+    @FXML
+    private Button toggleFilesButton;
 
     private final Dirchat.ResourceBundleWrapper messages = new Dirchat.ResourceBundleWrapper("messages");
 
@@ -70,6 +72,7 @@ public class UIController {
 
     private final java.util.concurrent.ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final List<Future<?>> futures = new java.util.ArrayList<>();
+    private boolean showingScoredFiles = false;
 
 
     @FXML
@@ -108,20 +111,30 @@ public class UIController {
         });
         // Set cell factory to gray out empty scores
         scoreColumn.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+            {
+                setAlignment(javafx.geometry.Pos.CENTER);
+            }
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(item);
                 if (empty || item == null || item.isBlank()) {
-                    setStyle("-fxext-fill: gray;");
+                    setStyle("-fx-text-fill: gray;");
                 } else {
                     setStyle("");
                 }
             }
         });
-        fileNameColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(
-            cellData.getValue().getFileName()
-        ));
+        fileNameColumn.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+            {
+                setAlignment(javafx.geometry.Pos.CENTER);
+            }
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(item);
+            }
+        });
         openColumn.setCellFactory(col -> new TableCell<>() {
             private final Button openButton = new Button(messages.getString("button.openFile"));
             {
@@ -160,6 +173,8 @@ public class UIController {
                 }
             }
         });
+
+        toggleFilesButton.setOnAction(e -> handleToggleFiles());
     }
 
     // Called from LogMessages to update the message bar
@@ -175,7 +190,6 @@ public class UIController {
         }
     }
 
-
     //TODO: Refactor to a leaner code.
     private void handleLoadFolder() {
         DirectoryChooser chooser = new DirectoryChooser();
@@ -187,11 +201,9 @@ public class UIController {
         }
         selectedFolder = folder.getAbsolutePath(); //TODO: Change to path.
         vectorStore = new VectorStore(selectedFolder);
-
         ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), messages.getString("progress.indexingDocuments"));
         progressDialog.show();
         mainBorderPane.setCursor(Cursor.WAIT);
-
         javafx.concurrent.Task<Void> loadTask = new IndexingTask( vectorStore, progressDialog );
         loadTask.setOnSucceeded(e -> {
             // UI  Updates are run on Platform thread
@@ -219,7 +231,6 @@ public class UIController {
             setMessageBar(messages.getString("status.indexSaveFailed"));
             updateIndexLoadedIndicator(IndexStatus.FAILED);
         }));
-
         futures.add(executorService.submit(loadTask));
     }
 
@@ -241,13 +252,9 @@ public class UIController {
             return;
         }
         mainBorderPane.setCursor(Cursor.WAIT);
-
         LogMessages.log(messages.getString("QUESTION").replace("{0}", question));
         chatListView.getItems().clear();
-
         // TODO> Refactor to separate class. This may be a task.
-
-
         // Controller saves the session, right?
         javafx.concurrent.Task<String> askTask = new QueryAnswerTask(
                 vectorStore,
@@ -365,6 +372,30 @@ public class UIController {
             } catch (Exception e) {
                 setMessageBar(messages.getString("error.failedToExportChat").replace("{0}", e.getMessage()));
             }
+        }
+    }
+
+    private void handleToggleFiles() {
+        if (showingScoredFiles) {
+            // Show all loaded files
+            indexStatusTable.getItems().setAll(loadedDocuments);
+            toggleFilesButton.setText("Show Scored Files");
+            showingScoredFiles = false;
+        } else {
+            // Show only scored files
+            List<DocumentLoader.LoadedDocument> scored = loadedDocuments.stream()
+                .filter(doc -> {
+                    try {
+                        String scoreStr = scoreColumn.getCellObservableValue(doc).getValue();
+                        return scoreStr != null && !scoreStr.isEmpty() && !scoreStr.equals("0");
+                    } catch (Exception ex) {
+                        return false;
+                    }
+                })
+                .toList();
+            indexStatusTable.getItems().setAll(scored);
+            toggleFilesButton.setText("Show All Files");
+            showingScoredFiles = true;
         }
     }
 }

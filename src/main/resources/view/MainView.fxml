@@ -22,15 +22,23 @@
             fx:controller="org.dirchat.controller.UIController">
     <top>
         <HBox alignment="TOP_LEFT" spacing="4">
-            <ImageView fx:id="logoImageView" fitHeight="60" preserveRatio="true">
+            <ImageView fx:id="logoImageView">
                 <image>
-                    <Image url="@../icons/dirchat-logo.png" />
+                    <Image url="@../icons/dirchat-logo-full.png" />
                 </image>
             </ImageView>
             <Label fx:id="welcomeLabel" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-padding: 10 0 10 0;" />
             <Region HBox.hgrow="ALWAYS"/>
             <VBox alignment="CENTER">
-                <Button fx:id="configButton" style="-fx-font-size: 14; -fx-padding: 4 12;" />
+                <Button fx:id="configButton" style="-fx-font-size: 14; -fx-padding: 4 12;">
+                    <graphic>
+                        <ImageView fitHeight="30" fitWidth="30" preserveRatio="true">
+                            <image>
+                                <Image url="@../icons/icon-config.png" />
+                            </image>
+                        </ImageView>
+                    </graphic>
+                </Button>
             </VBox>
         </HBox>
     </top>
@@ -78,6 +86,13 @@
                                 <tooltip>
                                     <Tooltip fx:id="askButtonTooltip" />
                                 </tooltip>
+                                <graphic>
+                                    <ImageView fx:id="askButtonImage" fitHeight="30" preserveRatio="true">
+                                        <image>
+                                            <Image url="@../icons/dirchat-logo.png" />
+                                        </image>
+                                    </ImageView>
+                                </graphic>
                             </Button>
                         </VBox>
                     </HBox>
@@ -87,6 +102,7 @@
                               prefHeight="120"
                               VBox.vgrow="ALWAYS"
                               focusTraversable="true" />
+                    <!--Button fx:id="toggleFilesButton" text="Show Scored Files" focusTraversable="true" /-->
                     <HBox alignment="TOP_RIGHT">
                         <Button fx:id="exportChatButton" focusTraversable="true">
                             <tooltip>

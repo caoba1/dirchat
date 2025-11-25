@@ -103,6 +103,16 @@ public class ConfigDialog extends Stage {
         queryAnswerCheckBox.setSelected(ConfigManager.getQueryAnswer());
         queryAnswerCheckBox.setTooltip(new Tooltip(bundle.getString("config.queryAnswer.tooltip")));
 
+        Label chunkLimitLabel = new Label(bundle.getString("config.chunkCharacterLimit"));
+        javafx.scene.control.TextField chunkLimitField = new javafx.scene.control.TextField(String.valueOf(ConfigManager.getChunkCharacterLimit()));
+        chunkLimitLabel.setTooltip(new Tooltip(bundle.getString("config.chunkCharacterLimit.tooltip")));
+        chunkLimitField.setTooltip(new Tooltip(bundle.getString("config.chunkCharacterLimit.tooltip")));
+
+        Label minScoreLabel = new Label(bundle.getString("config.minScore"));
+        javafx.scene.control.TextField minScoreField = new javafx.scene.control.TextField(String.valueOf(ConfigManager.getMinScore()));
+        minScoreLabel.setTooltip(new Tooltip(bundle.getString("config.minScore.tooltip")));
+        minScoreField.setTooltip(new Tooltip(bundle.getString("config.minScore.tooltip")));
+
         Button saveButton = new Button(bundle.getString("button.saveConfig"));
         saveButton.setOnAction(event -> {
             try{
@@ -111,7 +121,6 @@ public class ConfigDialog extends Stage {
                 ConfigManager.setOverlapCharacters(Integer.parseInt(overlapField.getText()));
                 ConfigManager.setOllamaBaseUrl(ollamaUrlField.getText());
                 ConfigManager.setTopK(Integer.parseInt(topKField.getText()));
-                // Find config value from selected label
                 String selectedLabel = outputModeComboBox.getValue();
                 String selectedMode = outputModeLabels.entrySet().stream()
                     .filter(e -> e.getValue().equals(selectedLabel))
@@ -119,6 +128,8 @@ public class ConfigDialog extends Stage {
                     .findFirst().orElse("none");
                 ConfigManager.setOutputMode(selectedMode);
                 ConfigManager.setQueryAnswer(queryAnswerCheckBox.isSelected());
+                ConfigManager.setChunkCharacterLimit(Integer.parseInt(chunkLimitField.getText()));
+                ConfigManager.setMinScore(Double.parseDouble(minScoreField.getText()));
                 close();
             } catch (Exception e) {
                 System.err.println("Failed to save configuration: " + e.getMessage());
@@ -149,6 +160,8 @@ public class ConfigDialog extends Stage {
             overlapLabel, overlapField,
             ollamaUrlLabel, ollamaUrlField,
             topKLabel, topKField,
+            chunkLimitLabel, chunkLimitField,
+            minScoreLabel, minScoreField,
             outputModeLabel, outputModeComboBox,
             methodSelector,
             languageLabel, languageComboBox,
