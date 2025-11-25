@@ -45,28 +45,20 @@
     <center>
         <SplitPane dividerPositions="0.3"> <!-- 30% to first pane and boxes -->
             <VBox spacing="8" style="-fx-background-color: #f8fbff; -fx-padding: 10;">
-                <Label fx:id="foundFilesLabel" style="-fx-font-size: 14; -fx-font-weight: bold;" />
-                <HBox spacing="6">
-                    <!-- Removed sortComboBox and filterComboBox -->
-                </HBox>
-                <TableView fx:id="indexStatusTable" prefWidth="400" focusTraversable="true">
+                <Label fx:id="foundFilesLabel" style="-fx-font-size: 14; -fx-font-weight: italic;" />
+                <TableView fx:id="indexStatusTable" VBox.vgrow="ALWAYS" focusTraversable="true">
                     <columns>
                         <TableColumn fx:id="fileNameColumn" text="File Name" prefWidth="220"/>
-                        <TableColumn fx:id="scoreColumn" text="Score" prefWidth="80"/>
-                        <TableColumn fx:id="openColumn" text="Open" prefWidth="80"/>
+                        <TableColumn fx:id="scoreColumn" text="Score" prefWidth="60"/>
+                        <TableColumn fx:id="openColumn" text="Open" prefWidth="60"/>
                     </columns>
                 </TableView>
-                <!--ListView fx:id="indexStatusList" prefWidth="220" focusTraversable="true" /-->
             </VBox> <!-- Second box in SplitPane is the right hand side -->
             <VBox spacing="10" style="-fx-padding: 20;">
                 <VBox spacing="10">
                     <HBox spacing="10" alignment="TOP_LEFT" HBox.hgrow="ALWAYS">
                         <!-- INDEXING -->
-                        <Button fx:id="loadFolderButton" focusTraversable="true">
-                            <tooltip>
-                                <Tooltip fx:id="loadFolderTooltip" />
-                            </tooltip>
-                        </Button>
+                        <Button fx:id="loadFolderButton" focusTraversable="true" />
                         <VBox alignment="CENTER_LEFT">
                             <Label fx:id="folderLabel" />
                         </VBox>
@@ -83,9 +75,6 @@
                                   prefRowCount="2"/>
                         <VBox alignment="CENTER_LEFT">
                             <Button fx:id="askButton" focusTraversable="true">
-                                <tooltip>
-                                    <Tooltip fx:id="askButtonTooltip" />
-                                </tooltip>
                                 <graphic>
                                     <ImageView fx:id="askButtonImage" fitHeight="30" preserveRatio="true">
                                         <image>
@@ -104,16 +93,8 @@
                               focusTraversable="true" />
                     <!--Button fx:id="toggleFilesButton" text="Show Scored Files" focusTraversable="true" /-->
                     <HBox alignment="TOP_RIGHT">
-                        <Button fx:id="exportChatButton" focusTraversable="true">
-                            <tooltip>
-                                <Tooltip fx:id="exportChatTooltip" />
-                            </tooltip>
-                        </Button>
-                        <Button fx:id="resetChatButton" focusTraversable="true">
-                            <tooltip>
-                                <Tooltip fx:id="resetChatTooltip" />
-                            </tooltip>
-                        </Button>
+                        <Button fx:id="exportChatButton" focusTraversable="true" />
+                        <Button fx:id="resetChatButton" focusTraversable="true" />
                     </HBox>
                 </VBox>
             </VBox>

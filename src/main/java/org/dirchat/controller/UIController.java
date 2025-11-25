@@ -79,29 +79,31 @@ public class UIController {
     public void initialize() {
         // Initial UI setup - arranged for clarity
         loadFolderButton.setText(messages.getString("button.loadFolder"));
-        loadFolderButton.setTooltip(new Tooltip(messages.getString("tooltip.loadFolder"))); // change to button.loadFolder.tooltip
         loadFolderButton.setOnAction(e -> handleLoadFolder());
         folderLabel.setText(messages.getString("label.noFolderSelected"));
 
         questionField.setPromptText(messages.getString("prompt.typeQuestion"));
         askButton.setText(messages.getString("button.ask"));
-        askButton.setTooltip(new Tooltip(messages.getString("tooltip.ask"))); // change to button.ask.tooltip
         askButton.setOnAction(e -> handleAskQuestion());
 
-        exportChatButton.setTooltip(new Tooltip(messages.getString("tooltip.exportChat"))); // change to button.exportChat.tooltip
         exportChatButton.setText(messages.getString("button.exportChat"));
         exportChatButton.setOnAction(e -> exportChatHistory());
 
-        resetChatButton.setTooltip(new Tooltip(messages.getString("tooltip.resetChat"))); // change to button.exportChat.tooltip
         resetChatButton.setText(messages.getString("button.resetChat"));
         resetChatButton.setOnAction(e -> handleReset());
 
         configButton.setText(messages.getString("button.config"));
-        configButton.setTooltip(new Tooltip(messages.getString("tooltip.config")));
         configButton.setOnAction(e -> {
             ConfigDialog configDialog = new ConfigDialog((Stage) mainBorderPane.getScene().getWindow());
             configDialog.showAndWait();
         });
+
+        // Set tooltips programmatically for all buttons
+        loadFolderButton.setTooltip(new Tooltip(messages.getString("tooltip.loadFolder")));
+        askButton.setTooltip(new Tooltip(messages.getString("tooltip.ask")));
+        exportChatButton.setTooltip(new Tooltip(messages.getString("tooltip.exportChat")));
+        resetChatButton.setTooltip(new Tooltip(messages.getString("tooltip.resetChat")));
+        configButton.setTooltip(new Tooltip(messages.getString("tooltip.config")));
 
         // TableView setup for document list (now using LoadedDocument directly)
         scoreColumn.setCellValueFactory(cellData -> {
