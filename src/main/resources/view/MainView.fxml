@@ -59,6 +59,7 @@
                     <HBox spacing="10" alignment="TOP_LEFT" HBox.hgrow="ALWAYS">
                         <!-- INDEXING -->
                         <Button fx:id="loadFolderButton" focusTraversable="true" />
+                        <CheckBox fx:id="deleteIndexCheckBox" text="Delete index folder before loading" />
                         <VBox alignment="CENTER_LEFT">
                             <Label fx:id="folderLabel" />
                         </VBox>

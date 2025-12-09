@@ -1,5 +1,6 @@
 package org.dirchat.util;
-
+// similarity function for document list todo: score documents in extends List<Dococument>
+// methods for List<Document> : sort by similarity, filter by threshold, get top N, average similarity etc.
 import org.dirchat.model.QueryResult;
 import java.util.*;
 

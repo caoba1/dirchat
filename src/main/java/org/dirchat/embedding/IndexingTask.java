@@ -105,16 +105,13 @@ public class IndexingTask extends Task<Void> {
                         vectorStore.upsertLoadedDocument(doc); // Save in table_document
 
                         // Our custom ContentHandler that splits the stream into chunks and embeds them
-                        org.xml.sax.ContentHandler handler = new StreamSplitter( embeddingService,
+                        StreamSplitter handler = new StreamSplitter( embeddingService,
                                 vectorStore,
                                 doc,
                                 progressDialog);
 
-                        // Parse the file synchronously, waiting for handler to complete
-                        try (java.io.InputStream stream = new java.io.FileInputStream(file)) {
-                            parser.parse(stream, handler, metadata, context);
-                        }
-
+                        // Use the unified entry point for chunking/indexing
+                        handler.splitDocument();
                         doc.setIntexed(true);
                         docs.add(doc);
                         Platform.runLater(() -> progressDialog.setFileProgress(1));

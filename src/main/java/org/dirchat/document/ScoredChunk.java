@@ -4,12 +4,17 @@ public class ScoredChunk {
     private final double score;
     private final int documentId;
     private final int chunkId;
-    public ScoredChunk(int documentId,int  chunkId, long cursorPointer, double score) {
+    private final int pageNumber;
+    public ScoredChunk(int documentId, int chunkId, int pageNumber, long cursorPointer, double score) {
         this.documentId = documentId;
         this.chunkId = chunkId;
+        this.pageNumber = pageNumber;
         this.score = score;
     }
     public double getScore() {
         return score;
+    }
+    public int getPageNumber() {
+        return pageNumber;
     }
 }

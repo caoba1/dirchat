@@ -1,4 +1,5 @@
 package org.dirchat.util;
+// dirchat logger
 
 import java.util.logging.Logger;
 import java.util.logging.FileHandler;

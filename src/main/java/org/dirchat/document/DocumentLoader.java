@@ -4,19 +4,21 @@ package org.dirchat.document;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline;
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem;
+
+import org.dirchat.util.LogMessages;
+import org.dirchat.util.Dirchat;
+
+import org.xml.sax.ContentHandler;
+
+
+import org.apache.tika.metadata.Metadata;
 import org.apache.tika.Tika;
 import org.apache.tika.exception.WriteLimitReachedException;
-import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.*;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.sax.BodyContentHandler;
-import org.dirchat.util.LogMessages;
-import org.dirchat.util.Dirchat;
-import org.xml.sax.ContentHandler;
 
-//import java.io.File;
-//import java.io.FileInputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,7 +30,6 @@ import java.util.concurrent.*;
 public class DocumentLoader {
     private List<Path>  listFiles;
     private final Path folderPath;
-
     public DocumentLoader(String folderPathStr){
         super();
         folderPath = Paths.get(folderPathStr);
@@ -50,25 +51,23 @@ public class DocumentLoader {
     }
 
     private final Tika tika = new Tika(); //Todo: are we using Tika or other stuff?
+
     // Allows the UI to register a callback for message bar updates.
     // This decouples backend logic from the UI, so DocumentLoader can notify the user without knowing about UI classes.
     private static java.util.function.Consumer<String> messageBarSetter;
 
     public static class LoadedDocument {
         private final int documentId; //unique accross documents. from path.hashCode()
-        public Metadata metadata; // Now mutable. why? shouldnt we be able to set it at creation only?
+        public final Metadata metadata = new Metadata(); // org.apache.tika.metadata.Metadata
         public final Path absolutePath;
         public String toc;
         private boolean indexed = false;
         private int numberOfPages = 0;// Whether this document has been indexed
         private double score = 0.0;
-        private long estCharCount = 0;
-
 
         public LoadedDocument(String absolutePath, boolean extractMetadata) {
             this.absolutePath = Path.of(absolutePath);
             this.documentId = this.absolutePath.toString().hashCode();
-            this.metadata = null;
             this.toc = null;
             if (extractMetadata)
             {
@@ -80,9 +79,8 @@ public class DocumentLoader {
         // overloaded? constructor for loading the documents
         public LoadedDocument(int documentId) {
             this.documentId = documentId;
-            this.absolutePath = null;
+            this.absolutePath = null; // for loading XXX from DB
             this.toc = null;
-            this.metadata = null;
         }
 
         public void setIntexed(boolean indexed) {
@@ -100,20 +98,28 @@ public class DocumentLoader {
         public Metadata getMetadata() {
             return metadata;
         }
+        public Path getPath() { return absolutePath; }
         private boolean extractMetadata() {
-            Metadata metadata = new Metadata();
+
             ContentHandler handler = new BodyContentHandler(1);
             AutoDetectParser parser = new AutoDetectParser();
             ParseContext context = new ParseContext();
 
             ExecutorService executor = Executors.newSingleThreadExecutor();
             Future<?> future = executor.submit(() -> {
-                try (InputStream stream = new FileInputStream(absolutePath.toFile())) {
+                try (InputStream stream = Files.newInputStream(absolutePath)) {
                     parser.parse(stream, handler, metadata, context);
                 } catch (WriteLimitReachedException e) {
                     System.out.println("Content extraction stopped after 1 byte (expected behavior).");
                 } catch (Exception e) {
                     e.printStackTrace();
+                } finally {
+                    for (String name : metadata.names()) {
+                        if (!name.isEmpty()) {
+                            LogMessages.log("Metadata: " + name + " = " + metadata.get(name));
+                        }
+                    }
+                    LogMessages.log("Finally for Metada input stream closed.");
                 }
             });
 
@@ -131,7 +137,9 @@ public class DocumentLoader {
                 return false;
             }
             executor.shutdown();
-            this.metadata = metadata;
+
+            String mediaType = metadata.get(Metadata.CONTENT_TYPE);
+            LogMessages.log("Extracted media type: " + mediaType);
             return true;
         }
 

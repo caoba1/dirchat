@@ -2,6 +2,7 @@ package org.dirchat.document;
 
 //import org.apache.tika.sax.ContentHandler;
 import javafx.application.Platform;
+import org.apache.tika.metadata.Metadata;
 import org.dirchat.controller.ProgressDialog;
 import org.dirchat.embedding.VectorStore;
 import org.dirchat.embedding.EmbeddingService;
@@ -16,6 +17,8 @@ import org.xml.sax.Attributes;
 import org.dirchat.controller.ProgressDialog;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -38,6 +41,8 @@ public class StreamSplitter implements ContentHandler {
     private boolean extractionMode = false;
     private long totalChunks;
     private AtomicInteger currentPageNumber = new AtomicInteger(0);
+
+    private Chunk thisChunkChunk;
 
     public StreamSplitter(EmbeddingService embeddingService,
                           VectorStore vectorStore,
@@ -81,8 +86,7 @@ public class StreamSplitter implements ContentHandler {
     private String lastChunk = "";
     private String overlapBuffer = "";
 
-    private void processChunk(String thisChunk) {
-
+    private void processChunk( String thisChunk) {
         // First check for the page number
         for (int i = 0; i < thisChunk.length(); i++) {
             if (thisChunk.charAt(i) == '\f') {
@@ -114,33 +118,31 @@ public class StreamSplitter implements ContentHandler {
         }
 
         // Indexing mode: process and store chunk
-        dirchatStoreChunk(thisChunk);
+        Chunk chunk = new Chunk(
+                this.document.getAbsolutePath(),
+                this.document.getFileType(),
+                this.document.getDocumentId(),
+                chunkIndex.get(),
+                cursorPointer.get(),
+                currentPageNumber.get()
+        );
+        dirchatStoreChunk(chunk, thisChunk);
 
         cursorPointer.addAndGet(thisChunk.length() - CHUNK_OVERLAP);
         // For demonstration, we just print the chunk size
         System.out.println("Processed chunk of size: " + thisChunk.length());
     }
 
-    private boolean dirchatStoreChunk(String chunkText) {
-        Chunk chunk = new Chunk(
-            this.document.getAbsolutePath(),
-            this.document.getFileType(),
-            this.document.getDocumentId(),
-            this.chunkIndex.getAndIncrement(),
-            this.cursorPointer.get()
-        );
-
+    private boolean dirchatStoreChunk(Chunk chunk, String chunkText) {
         if ( progressDialog.isCancelled() ) {
             throw new RuntimeException("Cancelado por el usuario");
         }
-
         List<Double> embedding = embeddingService.embedText(chunkText); //magic
         try {
             vectorStore.saveChunkEmbeddingToSqlite(chunk, embedding);
         } catch (SQLException | IOException e) {
             throw new RuntimeException(e);
         }
-
         // Call to
         double progress = Math.min(chunkIndex.doubleValue() / (totalChunks), 1.0);
         Platform.runLater(() -> progressDialog.setFileProgress(progress));
@@ -149,6 +151,37 @@ public class StreamSplitter implements ContentHandler {
         }
         return true;
     }
+
+    /**
+     * Helper to split text into fixed-size chunks with overlap, assigning page number.
+     */
+    private void chunkTextBySize(String text, int pageNumber) {
+        int length = text.length();
+        int start = 0;
+        int chunkIdx = 0;
+        while (start < length) {
+            int end = Math.min(start + CHUNK_CHAR_LIMIT, length);
+            String chunkText = text.substring(start, end);
+            // Add overlap from previous chunk if not first chunk
+            if (start > 0 && CHUNK_OVERLAP > 0) {
+                int overlapStart = Math.max(0, start - CHUNK_OVERLAP);
+                chunkText = text.substring(overlapStart, start) + chunkText;
+            }
+            Chunk chunk = new Chunk(
+                this.document.getAbsolutePath(),
+                this.document.getFileType(),
+                this.document.getDocumentId(),
+                chunkIndex.getAndIncrement(),
+                start,
+                pageNumber
+            );
+            dirchatStoreChunk(chunk, chunkText);
+            start += CHUNK_CHAR_LIMIT - CHUNK_OVERLAP;
+            chunkIdx++;
+        }
+    }
+
+
 
     @Override
     public void characters(char[] ch, int start, int length) throws SAXException {
@@ -189,4 +222,26 @@ public class StreamSplitter implements ContentHandler {
     @Override public void processingInstruction(String target, String data) throws SAXException {}
     @Override public void startPrefixMapping(String prefix, String uri) throws SAXException {}
     @Override public void ignorableWhitespace(char[] ch, int start, int length) throws SAXException {}
+
+    public void splitDocument() throws IOException {
+        if (document == null) {
+            throw new IllegalStateException("No document loaded");
+        }
+        String docType = document.getMetadata().get(Metadata.CONTENT_TYPE);
+        if ("pdf".equalsIgnoreCase(document.getFileType())) {
+            // Use PDFPageSplitter for PDFs
+            List<PDFPageSplitter.PageChunk> pageChunks = PDFPageSplitter.splitByPage(new java.io.File(document.getAbsolutePath()));
+            for (PDFPageSplitter.PageChunk pageChunk : pageChunks) {
+                chunkTextBySize(pageChunk.text, pageChunk.pageNumber);
+            }
+        } else {
+            // Unified entry point: use Tika's AutoDetectParser for non-PDFs
+            try (InputStream stream = Files.newInputStream(document.getPath())) {
+                org.apache.tika.parser.AutoDetectParser parser = new org.apache.tika.parser.AutoDetectParser();
+                parser.parse(stream, this, document.getMetadata(), new org.apache.tika.parser.ParseContext());
+            } catch (Exception e) {
+                throw new IOException("Error parsing non-PDF document: " + e.getMessage(), e);
+            }
+        }
+    }
 }

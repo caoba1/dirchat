@@ -5,6 +5,7 @@ package org.dirchat.controller;
 import javafx.application.Platform;
 import javafx.scene.Cursor;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.BorderPane;
@@ -62,6 +63,8 @@ public class UIController {
     private Button resetChatButton;
     @FXML
     private Button toggleFilesButton;
+    @FXML
+    private CheckBox deleteIndexCheckBox;
 
     private final Dirchat.ResourceBundleWrapper messages = new Dirchat.ResourceBundleWrapper("messages");
 
@@ -176,7 +179,10 @@ public class UIController {
             }
         });
 
-        toggleFilesButton.setOnAction(e -> handleToggleFiles());
+        if (deleteIndexCheckBox != null) {
+            deleteIndexCheckBox.setVisible(false);
+            deleteIndexCheckBox.setManaged(false);
+        }
     }
 
     // Called from LogMessages to update the message bar
@@ -202,6 +208,13 @@ public class UIController {
             return;
         }
         selectedFolder = folder.getAbsolutePath(); //TODO: Change to path.
+        // Delete index folder if checkbox is selected
+        if (deleteIndexCheckBox != null && deleteIndexCheckBox.isSelected()) {
+            File indexFolder = new File(messages.getString("status.indexFolder"));
+            if (indexFolder.exists()) {
+                deleteDirectoryRecursively(indexFolder);
+            }
+        }
         vectorStore = new VectorStore(selectedFolder);
         ProgressDialog progressDialog = new ProgressDialog((Stage) mainBorderPane.getScene().getWindow(), messages.getString("progress.indexingDocuments"));
         progressDialog.show();
@@ -399,5 +412,18 @@ public class UIController {
             toggleFilesButton.setText("Show All Files");
             showingScoredFiles = true;
         }
+    }
+
+    // Utility method to delete a directory recursively
+    private void deleteDirectoryRecursively(File dir) {
+        if (dir.isDirectory()) {
+            File[] children = dir.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteDirectoryRecursively(child);
+                }
+            }
+        }
+        dir.delete();
     }
 }

@@ -3,10 +3,12 @@ package org.dirchat.document;
 public class TopChunkResult {
     private final int documentId;
     private final int chunkId;
+    private final int pageNumber;
     private final double score;
-    public TopChunkResult(int documentId, int chunkId, double score) {
+    public TopChunkResult(int documentId, int chunkId, int pageNumber, double score) {
         this.documentId = documentId;
         this.chunkId = chunkId;
+        this.pageNumber = pageNumber;
         this.score = score;
     }
     public int getDocumentId() {
@@ -15,8 +17,10 @@ public class TopChunkResult {
     public int getChunkId() {
         return chunkId;
     }
+    public int getPageNumber() {
+        return pageNumber;
+    }
     public double getScore() {
         return score;
     }
 }
-

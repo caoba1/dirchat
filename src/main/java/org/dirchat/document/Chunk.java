@@ -47,17 +47,20 @@ public class Chunk {
     private final int cursorPointer;
     private final int length = ConfigManager.getChunkCharacterLimit();
     private final String embeddingSource = ConfigManager.getIndexingMethod();
+    private int pageNumber; // Page number in the source document
 
     public Chunk(String sourceFile,
                  String documentType,
                  int documentId,
                  int chunkIndex,
-                 int cursorPointer) {
+                 int cursorPointer,
+                 int pageNumber) {
         this.sourceFile = sourceFile;
         this.documentType = documentType;
         this.documentId = documentId;
         this.chunkIndex = chunkIndex;
         this.cursorPointer = cursorPointer;
+        this.pageNumber = pageNumber;
         this.timeStamp = LocalDateTime.now();
     }
 
@@ -68,6 +71,7 @@ public class Chunk {
         this.documentId = other.documentId;
         this.chunkIndex = other.chunkIndex;
         this.cursorPointer = other.cursorPointer;
+        this.pageNumber = other.pageNumber;
         this.timeStamp = other.timeStamp;
     }
 
@@ -78,6 +82,7 @@ public class Chunk {
         this.documentId = 0;
         this.chunkIndex = 0;
         this.cursorPointer = 0;
+        this.pageNumber = 0;
         this.timeStamp = LocalDateTime.now();
     }
 
@@ -138,6 +143,10 @@ public class Chunk {
 
     public String getEmbeddingSource() {
         return embeddingSource;
+    }
+
+    public int getPageNumber() {
+        return pageNumber;
     }
 
     @Override

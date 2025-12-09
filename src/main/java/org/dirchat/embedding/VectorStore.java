@@ -258,7 +258,7 @@ public class VectorStore {
      */
     public java.util.List<org.dirchat.document.TopChunkResult> compoundSearchWithScores(List<Double> queryVector, int topK) throws SQLException, IOException {
         java.util.List<org.dirchat.document.TopChunkResult> results = new java.util.ArrayList<>();
-        String sql = "SELECT id, document_id, embedding_vector FROM table_chunk";
+        String sql = "SELECT id, document_id, page_number, embedding_vector FROM table_chunk";
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
             try (PreparedStatement stmt = conn.prepareStatement(sql);
                  ResultSet rs = stmt.executeQuery()) {
@@ -266,11 +266,12 @@ public class VectorStore {
                 while (rs.next()) {
                     int chunkId = rs.getInt("id");
                     int documentId = rs.getInt("document_id");
+                    int pageNumber = rs.getInt("page_number");
                     String embeddingJson = rs.getString("embedding_vector");
                     List<Double> vector = mapper.readValue(embeddingJson, new com.fasterxml.jackson.core.type.TypeReference<List<Double>>() {});
                     double score = cosineSimilarity(queryVector, vector);
                     if ( true | score > ConfigManager.getMinScore() ) {
-                        results.add(new org.dirchat.document.TopChunkResult(documentId, chunkId, score));
+                        results.add(new org.dirchat.document.TopChunkResult(documentId, chunkId, pageNumber, score));
                     }
                 }
             }
@@ -356,23 +357,25 @@ public class VectorStore {
             String sql = "INSERT INTO table_chunk (document_id," +
                     " chunk_index," +
                     " cursor_pointer," +
+                    " page_number," +
                     " source_file," +
                     " document_type," +
                     " time_stamp," +
                     " length," +
                     " embedding_source," +
-                    " embedding_vector) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    " embedding_vector) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
                 pstmt.setInt(1, chunk.getDocumentId());
                 pstmt.setInt(2, chunk.getChunkIndex());
                 pstmt.setInt(3, chunk.getCursorPointer());
-                pstmt.setString(4, chunk.getSourceFile());
-                pstmt.setString(5, chunk.getDocumentType());
-                pstmt.setString(6, chunk.getTimeStamp().toString());
-                pstmt.setInt(7, chunk.getLength());
-                pstmt.setString(8, chunk.getEmbeddingSource());
-                pstmt.setString(9, mapper.writeValueAsString(embedding));
+                pstmt.setInt(4, chunk.getPageNumber());
+                pstmt.setString(5, chunk.getSourceFile());
+                pstmt.setString(6, chunk.getDocumentType());
+                pstmt.setString(7, chunk.getTimeStamp().toString());
+                pstmt.setInt(8, chunk.getLength());
+                pstmt.setString(9, chunk.getEmbeddingSource());
+                pstmt.setString(10, mapper.writeValueAsString(embedding));
 
                 pstmt.executeUpdate();
 
@@ -418,28 +421,21 @@ public class VectorStore {
     // Retrieve chunk embeddings and pointers from TABLE_CHUNK
     public List<ScoredChunk> getChunkEmbeddingsWithScores(List<Double> queryVector, int topK) throws SQLException, IOException {
         List<ScoredChunk> allScoredChunks = new ArrayList<>();
-
-
-
-
-        String sql = "SELECT id, document_id, cursor_pointer, embedding_vector FROM table_chunk";
+        String sql = "SELECT id, document_id, page_number, cursor_pointer, embedding_vector FROM table_chunk";
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath)) {
             try (PreparedStatement stmt = conn.prepareStatement(sql);
                  ResultSet rs = stmt.executeQuery()) {
                 ObjectMapper mapper = new ObjectMapper();
                 while (rs.next()) {
-                    int documentId = rs.getInt("id");
-                    int chunkIndex = rs.getInt("document__id");
+                    int chunkId = rs.getInt("id");
+                    int documentId = rs.getInt("document_id");
+                    int pageNumber = rs.getInt("page_number");
                     int cursorPointer = rs.getInt("cursor_pointer");
                     String embeddingJson = rs.getString("embedding_vector");
                     List<Double> vector = mapper.readValue(embeddingJson, new TypeReference<List<Double>>() {});
-                    Chunk chunk = new Chunk();//(documentId, 0, chunkIndex, pageNumber, cursorPointer, documentId, null);
                     double score = cosineSimilarity(queryVector, vector);
 
-                    allScoredChunks.add(new ScoredChunk(documentId
-                            ,chunkIndex
-                            ,cursorPointer
-                            ,score));
+                    allScoredChunks.add(new ScoredChunk(documentId, chunkId, pageNumber, cursorPointer, score));
                 }
             }
         }
