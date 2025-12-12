@@ -108,13 +108,13 @@ public class VectorStore {
     // TODO: This is not a STORE!
     // Only this constructor is used to initialize the VectorStore with a specific folder
     public VectorStore(String selectedFolder) {
-        Path dirPath = Path.of(selectedFolder, Dirchat.DIRECTORY);
+        Path dirPath = Path.of(selectedFolder, ConfigManager.DIRECTORY);
         this.sqliteDbPath = dirPath.resolve("vectorstore.db").toAbsolutePath();
         try {
             Files.createDirectories(dirPath);
             initSqliteDb();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to create" + Dirchat.DIRECTORY + ": "+ dirPath, e);
+            throw new RuntimeException("Failed to create" + ConfigManager.DIRECTORY + ": "+ dirPath, e);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to initialize SQLite database: " + sqliteDbPath, e);
         }

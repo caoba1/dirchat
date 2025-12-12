@@ -16,15 +16,19 @@
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.CheckBox?>
 <BorderPane fx:id="mainBorderPane"
             xmlns="http://javafx.com/javafx/24.0.1"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="org.dirchat.controller.UIController">
     <top>
-        <HBox alignment="TOP_LEFT" spacing="4">
+        <HBox alignment="CENTER_LEFT" spacing="4">
             <ImageView fx:id="logoImageView">
+                <HBox.margin>
+                    <Insets left="20" />
+                </HBox.margin>
                 <image>
-                    <Image url="@../icons/dirchat-logo-full.png" />
+                    <Image url="@../icons/dirchat-logo-244x83.png" />
                 </image>
             </ImageView>
             <Label fx:id="welcomeLabel" style="-fx-font-size: 20; -fx-font-weight: bold; -fx-padding: 10 0 10 0;" />
@@ -44,22 +48,23 @@
     </top>
     <center>
         <SplitPane dividerPositions="0.3"> <!-- 30% to first pane and boxes -->
-            <VBox spacing="8" style="-fx-background-color: #f8fbff; -fx-padding: 10;">
-                <Label fx:id="foundFilesLabel" style="-fx-font-size: 14; -fx-font-weight: italic;" />
+            <VBox spacing="6" style="-fx-background-color: #f8fbff; -fx-padding: 10;">
                 <TableView fx:id="indexStatusTable" VBox.vgrow="ALWAYS" focusTraversable="true">
+                    <placeholder>
+                        <Label text="*Select a folder to load files." style="-fx-font-size: 14; -fx-text-fill: gray;" />
+                    </placeholder>
                     <columns>
-                        <TableColumn fx:id="fileNameColumn" text="File Name" prefWidth="220"/>
-                        <TableColumn fx:id="scoreColumn" text="Score" prefWidth="60"/>
-                        <TableColumn fx:id="openColumn" text="Open" prefWidth="60"/>
+                        <TableColumn fx:id="fileNameColumn" text="*Filename" prefWidth="220"/>
+                        <TableColumn fx:id="scoreColumn" text="*Score" prefWidth="60"/>
+                        <TableColumn fx:id="openColumn" text="*Open" prefWidth="60"/>
                     </columns>
                 </TableView>
             </VBox> <!-- Second box in SplitPane is the right hand side -->
-            <VBox spacing="10" style="-fx-padding: 20;">
+            <VBox spacing="6" style="-fx-padding: 20;">
                 <VBox spacing="10">
                     <HBox spacing="10" alignment="TOP_LEFT" HBox.hgrow="ALWAYS">
                         <!-- INDEXING -->
                         <Button fx:id="loadFolderButton" focusTraversable="true" />
-                        <CheckBox fx:id="deleteIndexCheckBox" text="Delete index folder before loading" />
                         <VBox alignment="CENTER_LEFT">
                             <Label fx:id="folderLabel" />
                         </VBox>
@@ -69,7 +74,7 @@
                     <HBox spacing="10" HBox.hgrow="ALWAYS">
                         <!-- QUESTION AND SEARCH -->
                         <TextArea fx:id="questionField"
-                                  promptText="Type your question here..."
+                                  promptText="*Type your question here..."
                                   wrapText="true"
                                   HBox.hgrow="ALWAYS"
                                   focusTraversable="true"
@@ -92,7 +97,6 @@
                               prefHeight="120"
                               VBox.vgrow="ALWAYS"
                               focusTraversable="true" />
-                    <!--Button fx:id="toggleFilesButton" text="Show Scored Files" focusTraversable="true" /-->
                     <HBox alignment="TOP_RIGHT">
                         <Button fx:id="exportChatButton" focusTraversable="true" />
                         <Button fx:id="resetChatButton" focusTraversable="true" />

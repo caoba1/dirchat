@@ -7,6 +7,9 @@ import org.dirchat.util.LogMessages;
 
 public class ConfigManager {
     private static final String CONFIG_FILE = "src/main/resources/config.properties";
+    public static final String VERSION = "0.1.0-alpha";
+    public static final String NAME = "dirchat";
+    public static final String DIRECTORY = ".dirchat";
     private static final Properties properties = new Properties();
 
     static {
@@ -193,6 +196,22 @@ public class ConfigManager {
         properties.setProperty("indexing.minScore", String.valueOf(minScore));
         try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
             properties.store(out, "Updated minScore value");
+        } catch (IOException e) {
+            System.err.println("Failed to save config file: " + e.getMessage());
+            LogMessages.logWarning("Failed to save configuration file");
+            throw e;
+        }
+    }
+
+    // indexing.deleteIndexOnLoad
+    public static boolean getDeleteIndexOnLoad() {
+        String value = properties.getProperty("indexing.deleteIndexOnLoad", "false");
+        return Boolean.parseBoolean(value);
+    }
+    public static void setDeleteIndexOnLoad(boolean delete) throws IOException {
+        properties.setProperty("indexing.deleteIndexOnLoad", String.valueOf(delete));
+        try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
+            properties.store(out, "Updated deleteIndexOnLoad value");
         } catch (IOException e) {
             System.err.println("Failed to save config file: " + e.getMessage());
             LogMessages.logWarning("Failed to save configuration file");

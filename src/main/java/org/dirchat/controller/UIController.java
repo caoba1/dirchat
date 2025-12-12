@@ -8,6 +8,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import opennlp.tools.dictionary.Index;
 import org.dirchat.document.DocumentLoader;
@@ -25,6 +26,9 @@ import java.util.List;
 import java.util.concurrent.Future;
 import java.util.LinkedHashMap;
 import java.util.concurrent.Executors;
+import java.util.ArrayList;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import org.dirchat.util.Dirchat;
 
@@ -46,7 +50,6 @@ public class UIController {
     private TableColumn<DocumentLoader.LoadedDocument, String> fileNameColumn;
     @FXML
     private TableColumn<DocumentLoader.LoadedDocument, Void> openColumn;
-
     @FXML
     private ListView<String> chatListView;
     @FXML
@@ -64,13 +67,15 @@ public class UIController {
     @FXML
     private Button toggleFilesButton;
     @FXML
-    private CheckBox deleteIndexCheckBox;
+    private ImageView logoImageView;
 
     private final Dirchat.ResourceBundleWrapper messages = new Dirchat.ResourceBundleWrapper("messages");
 
     private String selectedFolder;
     private VectorStore vectorStore;
-    private List<DocumentLoader.LoadedDocument> loadedDocuments;
+
+    // 251210: Make list unmodifiable and do not re asign the reference.
+    private final List<DocumentLoader.LoadedDocument> loadedDocuments = new ArrayList<>();
 
 
     private final java.util.concurrent.ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -101,23 +106,25 @@ public class UIController {
             configDialog.showAndWait();
         });
 
-        // Set tooltips programmatically for all buttons
+        // Set tooltips programmatically for all buttons.
+        configButton.setTooltip(new Tooltip(messages.getString("tooltip.config")));
         loadFolderButton.setTooltip(new Tooltip(messages.getString("tooltip.loadFolder")));
         askButton.setTooltip(new Tooltip(messages.getString("tooltip.ask")));
         exportChatButton.setTooltip(new Tooltip(messages.getString("tooltip.exportChat")));
         resetChatButton.setTooltip(new Tooltip(messages.getString("tooltip.resetChat")));
-        configButton.setTooltip(new Tooltip(messages.getString("tooltip.config")));
 
-        // TableView setup for document list (now using LoadedDocument directly)
+        // Table view configuration
         scoreColumn.setCellValueFactory(cellData -> {
             Double score = cellData.getValue().getScore();
-            if (score == null) return new javafx.beans.property.SimpleStringProperty("");
+            if (score == null)
+            {
+                return new javafx.beans.property.SimpleStringProperty("");
+            }
             return new javafx.beans.property.SimpleStringProperty(String.format("%.2f", score));
         });
-        // Set cell factory to gray out empty scores
         scoreColumn.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
             {
-                setAlignment(javafx.geometry.Pos.CENTER);
+                setAlignment(javafx.geometry.Pos.CENTER_LEFT);
             }
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -130,9 +137,10 @@ public class UIController {
                 }
             }
         });
+        // Set cell factory for fileNameColumn to CENTER_LEFT
         fileNameColumn.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
             {
-                setAlignment(javafx.geometry.Pos.CENTER);
+                setAlignment(javafx.geometry.Pos.CENTER_LEFT);
             }
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -140,9 +148,11 @@ public class UIController {
                 setText(item);
             }
         });
+        // Set cell factory for openColumn to CENTER_LEFT
         openColumn.setCellFactory(col -> new TableCell<>() {
             private final Button openButton = new Button(messages.getString("button.openFile"));
             {
+                setAlignment(javafx.geometry.Pos.CENTER_LEFT);
                 openButton.setOnAction(e -> {
                     DocumentLoader.LoadedDocument doc = getTableView().getItems().get(getIndex());
                     openDocument(doc);
@@ -179,9 +189,14 @@ public class UIController {
             }
         });
 
-        if (deleteIndexCheckBox != null) {
-            deleteIndexCheckBox.setVisible(false);
-            deleteIndexCheckBox.setManaged(false);
+        //251210: Update table after setting cell factories.
+        indexStatusTable.refresh();
+
+        if (logoImageView != null && logoImageView.getImage() != null) {
+            double originalWidth = logoImageView.getImage().getWidth();
+            double originalHeight = logoImageView.getImage().getHeight();
+            logoImageView.setFitWidth(originalWidth / 2);
+            logoImageView.setFitHeight(originalHeight / 2);
         }
     }
 
@@ -208,8 +223,9 @@ public class UIController {
             return;
         }
         selectedFolder = folder.getAbsolutePath(); //TODO: Change to path.
-        // Delete index folder if checkbox is selected
-        if (deleteIndexCheckBox != null && deleteIndexCheckBox.isSelected()) {
+        // Delete index folder if config option is enabled
+        if (org.dirchat.util.ConfigManager.getDeleteIndexOnLoad()) {
+            Path indexPath = Paths.get(selectedFolder, messages.getString("status.indexFolder"));
             File indexFolder = new File(messages.getString("status.indexFolder"));
             if (indexFolder.exists()) {
                 deleteDirectoryRecursively(indexFolder);
@@ -221,8 +237,11 @@ public class UIController {
         mainBorderPane.setCursor(Cursor.WAIT);
         javafx.concurrent.Task<Void> loadTask = new IndexingTask( vectorStore, progressDialog );
         loadTask.setOnSucceeded(e -> {
-            // UI  Updates are run on Platform thread
-            loadedDocuments = ((IndexingTask)loadTask).getLoadedDocuments();
+
+            // 251210: Clear and update the existing list instead of reassigning.
+            loadedDocuments.clear();
+            loadedDocuments.addAll( ((IndexingTask)loadTask).getLoadedDocuments());
+
             Platform.runLater(() -> {
                 progressDialog.close();
                 mainBorderPane.setCursor(Cursor.DEFAULT);
@@ -257,7 +276,9 @@ public class UIController {
     }
 
     public void shutdown() {
-        for (Future<?> future : futures) future.cancel(true);
+        for (Future<?> future : futures) {
+            future.cancel(true);
+        }
         executorService.shutdownNow();
     }
 

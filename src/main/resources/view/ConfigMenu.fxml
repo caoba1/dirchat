@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<TabPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
+    <tabs>
+        <Tab text="*Display">
+            <VBox spacing="12">
+                <padding>
+                    <Insets top="18" right="18" bottom="18" left="18"/>
+                </padding>
+                <Label text="*Language" fx:id="languageLabel" />
+                <ComboBox fx:id="languageComboBox" />
+                <Label text="*Theme" fx:id="themeLabel" />
+                <ComboBox fx:id="themeComboBox" />
+            </VBox>
+        </Tab>
+        <Tab text="*Embeddings">
+            <VBox spacing="12">
+                <padding>
+                    <Insets top="18" right="18" bottom="18" left="18"/>
+                </padding>
+                <CheckBox text="*Regenerate" fx:id="deleteIndexCheckBox" selected="true" />
+                <Label text="*Paragraphs per chunk" fx:id="paragraphsLabel" />
+                <TextField fx:id="paragraphsField" />
+                <Label text="*Paragraph overlap" fx:id="overlapLabel" />
+                <TextField fx:id="overlapField" />
+                <Label text="*Ollama URL" fx:id="ollamaUrlLabel" />
+                <TextField fx:id="ollamaUrlField" />
+                <Label text="*Top K" fx:id="topKLabel" />
+                <TextField fx:id="topKField" />
+                <Label text="*Chunk character limit" fx:id="chunkLimitLabel" />
+                <TextField fx:id="chunkLimitField" />
+                <Label text="*Min score" fx:id="minScoreLabel" />
+                <TextField fx:id="minScoreField" />
+                <Label text="*Output mode" fx:id="outputModeLabel" />
+                <ComboBox fx:id="outputModeComboBox" />
+                <Label text="*Indexing method" fx:id="methodLabel" />
+                <ComboBox fx:id="methodSelector" />
+                <Label text="*Query answer" fx:id="queryAnswerLabel" />
+                <CheckBox fx:id="queryAnswerCheckBox" />
+                <Button text="*Save" fx:id="saveButton" />
+            </VBox>
+        </Tab>
+    </tabs>
+</TabPane>
