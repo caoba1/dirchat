@@ -21,8 +21,6 @@ I created this application to have a fast and local solution for searching and q
 
 Current open source implmentations for searching in directories lack support for semantic search and RAG generation in an open and straightforward way.   Goal is to use the application as a replacement for other large dataset searching tools like catfish and recoll.  
 
-For testbenching i have used a large set of PDF documents downloaded from [data.gov](https://data.labs.loc.gov/dot-gov/) and [loc.gov](https://www.loc.gov/item/2020445568/).  Please message me if you have information on current benchmarks for document retrieval. 
-
 ## Evaluation
 For testing and improving the semantic search semantic and the RAG process, I am using several language models for generating the embeddings.  For context aware answer generation I am using tinyllama.
 
@@ -33,6 +31,8 @@ The following models have been tested:
 - For LLM retrieval and answer generation:
   - `tynillama`
   - `mistral`
+
+For testbenching i have used a large set of PDF documents downloaded from [data.gov](https://data.labs.loc.gov/dot-gov/) and [loc.gov](https://www.loc.gov/item/2020445568/).  Please message me if you have information on current benchmarks for document retrieval.
 
 ## Indexing
 For indexing each of the folders, a text snippet on each document is extracted for which embeddings are generated on overlapping pieces of information, and stored in a local SQLite database. The index is stored in a subdirectory of the selected folder.
