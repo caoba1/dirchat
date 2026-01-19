@@ -19,12 +19,13 @@ The application supports `.pdf` files and interfaces exist for expanding that to
 ## Motivation
 I created this application to have a fast and local solution for searching and querying large document datasets.
 
-For testbenching i have used a large set of PDF documents downloaded from [data.gov](https://data.labs.loc.gov/dot-gov/) and [loc.gov](https://www.loc.gov/item/2020445568/).  Please message me if you have information on current benchmarks. 
+Current open source implmentations for searching in directories lack support for semantic search and RAG generation in an open and straightforward way.   Goal is to use the application as a replacement for other large dataset searching tools like catfish and recoll.  
 
-Current open source implmentations for searching in directories lack support for semantic search and RAG generation in an open and straightforward way.   Goal is to use the application as an alternative for other large dataset searching tools like catfish and recoll.
+For testbenching i have used a large set of PDF documents downloaded from [data.gov](https://data.labs.loc.gov/dot-gov/) and [loc.gov](https://www.loc.gov/item/2020445568/).  Please message me if you have information on current benchmarks for document retrieval. 
 
 ## Evaluation
-For testing and improving the semantic search semantic and the RAG process, I am using [tinyllama](https://ollama.com/models/tinyllama) as the embedding model. 
+For testing and improving the semantic search semantic and the RAG process, I am using several language models for generating the embeddings.  For context aware answer generation I am using tinyllama.
+
 The following models have been tested: 
 - For the embedding model:
   - `SBERT`
@@ -34,8 +35,8 @@ The following models have been tested:
   - `mistral`
 
 ## Indexing
-For indexing each of the folders, the text on each document is extracted, embeddings are generated on overlapping pieces of information, and stored in a local SQLite database. The index is stored in a subdirectory of the selected folder.
-The indexing process may take some time depending on the number and size of the documents. Currently, embeddings are extracted based on a group of paragraphs. **This is a crucial step to improve for day-to-day use.**
+For indexing each of the folders, a text snippet on each document is extracted for which embeddings are generated on overlapping pieces of information, and stored in a local SQLite database. The index is stored in a subdirectory of the selected folder.
+The indexing process may take some time depending on the number and size of the documents. Currently, embeddings are extracted based on a fixed size of characters. **This is a crucial step to improve for day-to-day use.**
 
 
 ## Features - What it does
@@ -77,10 +78,10 @@ I am using a modular Java approach with the following main components:
    ```
 
 ## Notes
-The generated index files are stored as JSON files in a subdirectory. These embeddings are loaded in the next session if needed. I am currently using _tinyllama_ as the embedding model. Be warned, it may take some time to index all your files.
+The generated index files are stored as JSON files in a subdirectory. These embeddings are loaded in the next session if needed. 
 
 ## Urgent
-- Move long-running operations (embedding, indexing, answering questions) to JavaFX Tasks or background threads.
+- Move time intensive operations (embedding, indexing, answering questions) to JavaFX Tasks or background threads.
 - Use Platform.runLater to update UI elements (progress bars, cursor, messageBar) from those threads.
 
 ## To-Dos
@@ -89,44 +90,21 @@ The generated index files are stored as JSON files in a subdirectory. These embe
 - Improve contextuality. Implement [this](https://www.youtube.com/watch?v=6efwN_US-zk).
 - Explore using SBERT for document and context retrieval.
 - Use ServiceExecutor for calls to embedding services
-- Integrate ChromaDB for persistent storage. At the moment the index is saved locally in a JSON file. Emebbings are saved on overlapping chunks of text which point to a cursor position in the document.
-- Add a settings page to change the model and other parameters
 - Try other models, explore other API providers, use a task-specific model (**!**)
-- Develop towards a distributable
+- Build distributable
 - Linux support
-- **Improve Indexing Pipeline readability**
+- **Improve Indexing Pipeline**
 - **Change name to retriever**
 - **Prompt augmentation task**
-- **Configurable RAG process**
-- 
+- **Configurable RAG processes and prompts**
 
 
-## Database Structure and Pointer-Based Chunk Access
+## Contact
 
-The application uses a SQLite database for all vector storage and retrieval. File-based index is no longer supported.
+For questions regarding this project, licensing, or compliance with the
+GNU Affero General Public License v3.0 (AGPL-3.0), please contact:
+info@uiloops.com
 
-- **TABLE_INDEX**: Stores global index properties (e.g., embedding method).
-- **TABLE_DOCUMENT**: Stores metadata for each document (filename, location, number of pages, filetype, TOC, metadata).
-- **TABLE_CHUNK**: Stores chunk pointers and embedding vectors. Each chunk entry includes:
-    - `document_id`: Reference to the document in TABLE_DOCUMENT
-    - `chunk_index`: Index of the chunk within the document
-    - `page_number`: Page number for the chunk (if applicable)
-    - `cursor_pointer`: Character offset or pointer for chunk reconstruction
-    - `embedding_vector`: The embedding vector for the chunk
-    - `metadata`: Additional metadata for the chunk
-
-**Pointer-Based Retrieval**
-- Chunk content is not stored in the database. Instead, chunk pointers (document_id, page_number, cursor_pointer) are used to reconstruct the chunk content at runtime using Apache Tika and the original document.
-- This approach reduces storage requirements and ensures accurate retrieval of chunk content.
-
-**How Retrieval Works**
-- When querying, the application retrieves the top relevant chunk pointers and uses them to reconstruct the chunk content from the original document using Tika and the chunker.
-- All metadata is stored in the appropriate table, not as a chunk.
-
-## Example Workflow
-1. **Indexing**: Documents are parsed and chunked. Embeddings and pointers are saved to the database.
-2. **Querying**: When a user asks a question, the most relevant chunks are found using embeddings. Their pointers are used to fetch the actual text from the original document.
-3. **Answering**: The retrieved chunk contents are provided as context to the language model for generating answers.
 
 (c) [caoba1](https://github.com/caoba1)  
-Licensed under the [MIT License](LICENSE)
+Licensed under the [AGPL-3.0 License](LICENSE)
