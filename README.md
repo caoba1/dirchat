@@ -8,7 +8,7 @@ A front end for directory querying using network embeddings and question answeri
 
 The application is written in Java and implements an interface for the creation of embeddings and the reply of queries by poking a (large) language model either locally or on a server.
 
-When a user asks a question, the results of the top K documents are shown in the A desktop application for question answering over local documents using Apache Tika, LangChain4j, and JavaFX. 
+When a user asks a question, the results of the top K documents are shown in the results window. The application shows the retrieved documents, along with its relative score and shows the result of a query to a conversational large language model. 
 
 The current application implements SemanticSearch and Retrieval-Augmented Generation (RAG) using embeddings and a local LLM via [Ollama](https://ollama.com/). Please fell free to message me or do a pull request if you want to contibute adding image-to-text or pdf-to-markup or other featurs which can contribute to the indexing process. 
 
