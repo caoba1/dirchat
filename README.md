@@ -14,14 +14,14 @@ This application implement a Retrieval-Augmented Generation (RAG) pipeline using
 
 Work on the implementation of a local solution for a Model Context Protocol server (MCP) is also underway. Please fell free to message me or make a pull request if you want to contibute adding image-to-text or pdf-to-markup or other featurs which can contribute to the indexing and search processes. 
 
-Indexing and retrieval methods are still in evaluatory phase. 
+Indexing and retrieval methods are still in evaluatory phase.  <span style="color: green;">Goal is to have a working local solution, most certainly on a local GPU, -plus a distributable- by the end of 2Q2026.</span> 
 
 The application supports `.pdf` files and interfaces exist for expanding that to `.docx`, and `.txt`. More file types should be added in the future, as well as support for saving images in the same semantic space.
 
 ## Motivation
 I created this application to have a fast and local solution for searching and querying large document datasets.
 
-Current open source implmentations for searching in directories lack support for semantic search and RAG generation in an open and straightforward way.   Goal is to use the application as a replacement for other large dataset searching tools like catfish and recoll.  
+Current open source implmentations for searching in directories lack support for semantic search and RAG generation in an open and straightforward way. Goal is to use the application as a replacement for other large dataset searching tools like catfish and recoll.  
 
 ## Evaluation
 For testing and improving the semantic search semantic and the RAG process, I am using several language models for generating the embeddings.  For context aware answer generation I am using tinyllama.
