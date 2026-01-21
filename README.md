@@ -81,7 +81,7 @@ I am using a modular Java approach with the following main components:
 The generated index files are stored as JSON files in a subdirectory. These embeddings are loaded in the next session if needed. 
 
 ## Urgent
-- Move time intensive operations (embedding, indexing, answering questions) to JavaFX Tasks or background threads.
+- Move time intensive ope to rations (embedding, indexing, answering questions) to JavaFX Tasks or background threads.
 - Use Platform.runLater to update UI elements (progress bars, cursor, messageBar) from those threads.
 
 ## To-Dos
@@ -93,7 +93,9 @@ The generated index files are stored as JSON files in a subdirectory. These embe
 - Try other models, explore other API providers, use a task-specific model (**!**)
 - Build distributable
 - Linux support
-- **Improve Indexing Pipeline**
+- **Use an open distributable model for the embeddings so to not depend on ollama**
+- **Introduce a scoring mechanism**
+- **Improve the indexing pipeline**
 - **Change name to retriever**
 - **Prompt augmentation task**
 - **Configurable RAG processes and prompts**
