@@ -4,13 +4,15 @@
 
 # A directory chat application written in Java
 
-A front end for directory querying using network embeddings and question answering on the retrieved local documents using language models.
+An app for directory querying using network embeddings and question answering on the retrieved local documents using language models.
 
-The application is written in Java and implements an interface for the creation of embeddings and the reply of queries by poking a (large) language model either locally or on a server.
+The application is written in Java and implements an interface for the creation of embeddings and the reply of queries by poking a (Large) Language Model (LLM) either locally or on a network server.
 
-When a user asks a question, the results of the top K documents are shown in the results window. The application shows the retrieved documents, along with its relative score and shows the result of a query to a conversational large language model. 
+When a user asks a question, the results of the top K documents are shown in the results window. The application shows the retrieved documents, along with its relative score and the result of a query to a conversational large language model. 
 
-The current application implements SemanticSearch and Retrieval-Augmented Generation (RAG) using embeddings and a local LLM via [Ollama](https://ollama.com/). Please fell free to message me or do a pull request if you want to contibute adding image-to-text or pdf-to-markup or other featurs which can contribute to the indexing process. 
+This application implement a Retrieval-Augmented Generation (RAG) pipeline using embeddings and a local LLM via [Ollama](https://ollama.com/).  
+
+Work on the implementation of a local Model Context Protocol server (MCP) is also underway. Please fell free to message me or make a pull request if you want to contibute adding image-to-text or pdf-to-markup or other featurs which can contribute to the indexing and search processes. 
 
 Indexing and retrieval methods are still in evaluatory phase. 
 
@@ -46,14 +48,16 @@ The indexing process may take some time depending on the number and size of the 
 - Answers user questions with context issued from relevant document chunks
 - Displays answers with references to the original document
 
+
 ## Architecture
-I am using a modular Java approach with the following main components:
-- **UIController**: Handles threading and UI updates.
-- **ChatService**: Handles user queries and LLM responses
-- **DocumentLoader**: Loads and parses documents via Apache Tika
-- **TextChunker**: Splits extracted text into _bitesize_ chunks
-- **EmbeddingService**: Embeds text using LangChain4j and the model of your choice
-- **VectorStore**: Stores and retrieves relevant document vectors
+A modular Java approach with the following main components:
+- **Controller**: Handles threading and UI updates `org.dirchat.controller`
+- **ChatService**: Handles user queries and LLM responses `org.dirchat.llm`
+- **IndexingAndRetrieval**: Loads and parses documents via Apache Tika `org.dirchat.document`
+- **EmbeddingService**: Generates document embeddings using LangChain4j and the model of your choice. `org.dirchat.embedding` 
+- **VectorStore**: Stores and retrieves relevant document vectors `org.dirchat.embedding`
+- **Util**: Utility functions `org.dirchat.util`
+
 
 ## Requirements
 - Java 17+
@@ -62,7 +66,7 @@ I am using a modular Java approach with the following main components:
   -- LangChain4j
   -- Apache Tika
   -- Jackson Databind
-- Ollama running locally or on your server, usually at port 11434.
+- Ollama running locally or on a network server, usually at port 11434.
    -- tinyllama
 
 
@@ -78,27 +82,26 @@ I am using a modular Java approach with the following main components:
    ```
 
 ## Notes
-The generated index files are stored as JSON files in a subdirectory. These embeddings are loaded in the next session if needed. 
+The generated index files are stored on a local SQLite server. These embeddings are loaded in the next session if needed. Retrieval is performed with dirchat's own technology. 
 
 ## Urgent
-- Move time intensive ope to rations (embedding, indexing, answering questions) to JavaFX Tasks or background threads.
-- Use Platform.runLater to update UI elements (progress bars, cursor, messageBar) from those threads.
+- Migrate tasks to org.dirchat.util.ThreadManager
+- Migrate uses of Platform.runLater for updating UI elements (progress bars, cursor, messageBar) to org.dirchat.util.ThreadManager.
 
 ## To-Dos
 - Improve UI/UX
 - Run background tasks for the UI
-- Improve contextuality. Implement [this](https://www.youtube.com/watch?v=6efwN_US-zk).
-- Explore using SBERT for document and context retrieval.
-- Use ServiceExecutor for calls to embedding services
-- Try other models, explore other API providers, use a task-specific model (**!**)
+- Improve contextuality. 
+- Explore using SBERT and BERTO for document and context retrieval.
+- Use ServiceExecutor for calls to embedding services **For use with JavaFx's own implementation** 
+- Try other models, explore other API providers, use a task-specific model (**MCP!**)
 - Build distributable
 - Linux support
 - **Use an open distributable model for the embeddings so to not depend on ollama**
-- **Introduce a scoring mechanism**
-- **Improve the indexing pipeline**
-- **Change name to retriever**
-- **Prompt augmentation task**
-- **Configurable RAG processes and prompts**
+- **Implement a new scoring mechanism**
+- **Improve performance of the indexing pipeline**
+- **Configurable RAG prompt augmentation task**
+- **Implement MCP functions**
 
 
 ## Contact
