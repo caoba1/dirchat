@@ -37,7 +37,7 @@ The following models have been tested:
 For testbenching i have used a large set of PDF documents downloaded from [data.gov](https://data.labs.loc.gov/dot-gov/) and [loc.gov](https://www.loc.gov/item/2020445568/).  Please message me if you have information on current benchmarks for document retrieval.
 
 ## Indexing
-For indexing each of the folders, a text snippet on each document is extracted for which embeddings are generated on overlapping pieces of information, and stored in a local SQLite database. The index is stored in a subdirectory of the selected folder.
+For indexing each of the folders, a text snippet on each document is extracted for which embeddings are generated on overlapping pieces of information, and stored in a local SQLite database. The index for all documents is stored as a subdirectory of the selected folder.
 The indexing process may take some time depending on the number and size of the documents. Currently, embeddings are extracted based on a fixed size of characters. **This is a crucial step to improve for day-to-day use.**
 
 
@@ -101,7 +101,7 @@ The generated index files are stored on a local SQLite server. These embeddings 
 - **Implement a new scoring mechanism**
 - **Improve performance of the indexing pipeline**
 - **Configurable RAG prompt augmentation task**
-- **Implement MCP functions**
+- **Implement MCP functionality**
 
 
 ## Contact
