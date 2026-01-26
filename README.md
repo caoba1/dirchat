@@ -12,7 +12,7 @@ When a user asks a question, the results of the top K documents are shown in the
 
 This application implement a Retrieval-Augmented Generation (RAG) pipeline using embeddings and a local LLM via [Ollama](https://ollama.com/).  
 
-Work on the implementation of a local Model Context Protocol server (MCP) is also underway. Please fell free to message me or make a pull request if you want to contibute adding image-to-text or pdf-to-markup or other featurs which can contribute to the indexing and search processes. 
+Work on the implementation of a local solution for a Model Context Protocol server (MCP) is also underway. Please fell free to message me or make a pull request if you want to contibute adding image-to-text or pdf-to-markup or other featurs which can contribute to the indexing and search processes. 
 
 Indexing and retrieval methods are still in evaluatory phase. 
 
@@ -94,7 +94,7 @@ The generated index files are stored on a local SQLite server. These embeddings 
 - Improve contextuality. 
 - Explore using SBERT and BERTO for document and context retrieval.
 - Use ServiceExecutor for calls to embedding services **For use with JavaFx's own implementation** 
-- Try other models, explore other API providers, use a task-specific model (**MCP!**)
+- Try other models, explore other API providers, use a task-specific model (**!**)
 - Build distributable
 - Linux support
 - **Use an open distributable model for the embeddings so to not depend on ollama**
