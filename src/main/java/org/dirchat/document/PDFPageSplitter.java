@@ -1,3 +1,9 @@
+/*
+ * dirchat — Java directory chat application.
+ * Copyright (C) 2026 Carlos de Obaldia Pastor
+ * License: GNU AGPL v3 or later. See LICENSE for details.
+ */
+
 package org.dirchat.document;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -32,4 +38,3 @@ public class PDFPageSplitter {
         return chunks;
     }
 }
-

@@ -1,3 +1,9 @@
+/*
+ * dirchat — Java directory chat application.
+ * Copyright (C) 2026 Carlos de Obaldia Pastor
+ * License: GNU AGPL v3 or later. See LICENSE for details.
+ */
+
 // Represents a chunk of text with metadata
 //
 // A Chunk is a segment of text from a document, along with metadata about its origin and position.

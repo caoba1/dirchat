@@ -48,16 +48,16 @@ The indexing process may take some time depending on the number and size of the 
 - Answers user questions with context issued from relevant document chunks
 - Displays answers with references to the original document
 
-
 ## Architecture
-A modular Java approach with the following main components:
-- **Controller**: Handles threading and UI updates `org.dirchat.controller`
-- **ChatService**: Handles user queries and LLM responses `org.dirchat.llm`
-- **IndexingAndRetrieval**: Loads and parses documents via Apache Tika `org.dirchat.document`
-- **EmbeddingService**: Generates document embeddings using LangChain4j and the model of your choice. `org.dirchat.embedding` 
-- **VectorStore**: Stores and retrieves relevant document vectors `org.dirchat.embedding`
-- **Util**: Utility functions `org.dirchat.util`
+The application is organized as a single Java module, structured into the following main packages:
 
+`org.dirchat.controller`: Handles threading, application logic, and UI updates.
+`org.dirchat.llm`: Manages user queries and interactions with language models (LLMs).
+`org.dirchat.document`: Loads and parses documents using Apache Tika.
+`org.dirchat.embedding`: Generates and manages document embeddings using LangChain4j and selected models.
+`org.dirchat.util`: Provides utility functions and helpers for threading and other common tasks.
+
+This package-based organization keeps the codebase modular and maintainable. All dependencies are managed via Maven.
 
 ## Requirements
 - Java 17+

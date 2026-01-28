@@ -1,21 +1,7 @@
 /*
- * dirchat — A directory chat application written in Java.
- * A front end for directory querying using network embeddings and
- * question answering on retrieved local documents using language models.
- *
+ * dirchat — Java directory chat application.
  * Copyright (C) 2026 Carlos de Obaldia Pastor
- *
- * Contact: info@uiloops.com
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed WITHOUT ANY WARRANTY; without even the
- * implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU Affero General Public License for more details.
- *
+ * License: GNU AGPL v3 or later. See LICENSE for details.
  */
 
 // Loads and parses documents using Apache Tika

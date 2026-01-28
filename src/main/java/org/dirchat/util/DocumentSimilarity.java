@@ -1,3 +1,8 @@
+/*
+ * dirchat — Java directory chat application.
+ * Copyright (C) 2026 Carlos de Obaldia Pastor
+ * License: GNU AGPL v3 or later. See LICENSE for details.
+ */
 package org.dirchat.util;
 // similarity function for document list todo: score documents in extends List<Dococument>
 // methods for List<Document> : sort by similarity, filter by threshold, get top N, average similarity etc.
