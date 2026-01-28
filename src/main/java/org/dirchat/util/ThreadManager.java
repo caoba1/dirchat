@@ -60,7 +60,7 @@
  * );
  * </pre>
  */
-
+package org.dirchat.util;
 import javafx.application.Platform;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
