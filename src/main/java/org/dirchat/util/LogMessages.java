@@ -25,7 +25,7 @@ public class LogMessages {
             System.err.println("Failed to set up logger in LogMessages: " + e.getMessage());
         }
     }
-    // Log message keys for messages.properties
+    // Log message keys for messages.properties TODO: remove
     public static final String LOADING_FOLDER = "LOADING_FOLDER";
     public static final String LOADED_EMBEDDINGS = "LOADED_EMBEDDINGS";
     public static final String GENERATED_INDEX = "GENERATED_INDEX";

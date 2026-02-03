@@ -25,12 +25,10 @@ package org.dirchat.controller;
 import javafx.application.Platform;
 import javafx.scene.Cursor;
 import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
-import opennlp.tools.dictionary.Index;
 import org.dirchat.document.DocumentLoader;
 import org.dirchat.embedding.*;
 import org.dirchat.util.LogMessages;
@@ -49,7 +47,6 @@ import java.util.concurrent.Executors;
 import java.util.ArrayList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
 import org.dirchat.util.Dirchat;
 
 
