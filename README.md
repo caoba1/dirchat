@@ -60,7 +60,7 @@ The application is organized as a single Java module, structured into the follow
 This package-based organization keeps the codebase modular and maintainable. All dependencies are managed via Maven.
 
 ## Requirements
-- Java 17+
+- Java 21+
 - JavaFX SDK
 - Maven
   -- LangChain4j
