@@ -10,8 +10,8 @@ import javafx.concurrent.Task;
 import org.dirchat.controller.UIController;
 import org.dirchat.llm.ChatService; // TODO: divide in two
 import org.dirchat.util.ConfigManager;
-import org.dirchat.util.Dirchat;
 import org.dirchat.util.LogMessages;
+import org.dirchat.util.Messages;
 import java.util.List;
 import org.dirchat.document.DocumentLoader;
 
@@ -20,7 +20,7 @@ public class QueryAnswerTask extends Task<String>{
     private final String question;
     private final VectorStore vectorStore;
     private final List<DocumentLoader.LoadedDocument> loadedDocuments;
-    private final Dirchat.ResourceBundleWrapper messages = new Dirchat.ResourceBundleWrapper("messages");
+    private final java.util.ResourceBundle messages = Messages.getBundle();
     private final UIController uiController;
     public QueryAnswerTask(VectorStore vectorStore,
                            List<DocumentLoader.LoadedDocument> loadedDocuments,
@@ -43,15 +43,14 @@ public class QueryAnswerTask extends Task<String>{
                 answer = chatService.answerTopDocuments(question);
             }
             else {
-                answer = messages.getString("info.queryAnswerDisabled");
+                answer = messages.getString("chat.answer.disabled");
             }
             String citations = chatService.getTopDocumentCitations();
-            citations = "\n\n" + messages.getString("info.citationsHeader") + "\n" + citations;
+            citations = "\n\n" + messages.getString("chat.citations.header") + "\n" + citations;
             answer = answer.concat(citations);
         } catch (Exception ex) {
-            LogMessages.logWarning(ex.getMessage());
-            answer = messages.getString("error.failedToAnswer");
-            uiController.setMessageBar(messages.getString("error.failedToAnswer") + ": " + ex.getMessage(), "red");
+            LogMessages.logWarning("Could not generate a chat answer.", ex);
+            answer = messages.getString("chat.answer.failed");
             throw ex;
         }
         return answer;

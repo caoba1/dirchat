@@ -11,9 +11,9 @@ import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
 //import dev.langchain4j.model.embedding.DimensionAwareEmbeddingModel;
 
 import org.dirchat.util.LogMessages;
+import org.dirchat.util.Messages;
 
 import java.util.List;
-import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -33,20 +33,6 @@ public class EmbeddingService {
     private EmbeddingModel embeddingModel;
     private final String embeddingMethod;
 
-    private ResourceBundle messages = ResourceBundle.getBundle("messages");
-
-    // Allows the UI to register a callback for message bar updates.
-    private static java.util.function.Consumer<String> messageBarSetter;
-    public static void setMessageBarSetter(java.util.function.Consumer<String> setter) {
-        messageBarSetter = setter;
-    }
-
-    // Use this to send a message to the UI message bar (if registered)
-    public void setMessageBar(String msg) {
-        if (messageBarSetter != null)
-            messageBarSetter.accept(msg);
-    }
-
     // Provides a tokenizer and the embedding model based on the embedding method
     //public EmbeddingService() {
     //    this(BASE_URL, ConfigManager.getIndexingMethod());
@@ -61,9 +47,10 @@ public class EmbeddingService {
         this.embeddingMethod = embeddingMethod;
         try
         {
-            this.embeddingModel = getMethodEmbeddingModel(this.embeddingMethod); //TODO: messages.properties
+            this.embeddingModel = getMethodEmbeddingModel(this.embeddingMethod);
         } catch (RuntimeException e) {
-            LogMessages.logWarning("Failed initializing embedding model: " + e.getMessage());
+            LogMessages.logWarning("Could not initialize the embedding model.", e);
+            throw e;
         }
     }
 
@@ -83,26 +70,22 @@ public class EmbeddingService {
     public EmbeddingModel getMethodEmbeddingModel(String embeddingMethod) {
         EmbeddingModel methodEmbeddingModel = null;
         if (embeddingMethod.equalsIgnoreCase("default")) {
-            // Not implemented: return null or throw exception
-            LogMessages.log("Not implemented yet");
-            setMessageBar(messages.getString("error.embeddingMethodNotImplemented"));
-            return null;
+            throw new IllegalArgumentException(Messages.get("embedding.error.method-not-implemented"));
         } else if (embeddingMethod.equalsIgnoreCase("sbert")) {
             methodEmbeddingModel = OllamaEmbeddingModel.builder()
                     .baseUrl(baseUrl)
                     .modelName("all-minilm:33m")
                     .build();
-            //TODO: messages.properties
         } else if (embeddingMethod.equalsIgnoreCase("langchainALLMINI")) {
-            EmbeddingModel eM = null; //new AllMiniLmL6V2EmbeddingModel();
-            methodEmbeddingModel = eM;
-            //TODO: messages.properties
-        } else if (embeddingMethod.equalsIgnoreCase("tinyllama")) {
+            throw new UnsupportedOperationException("The langchainALLMINI embedding method is unavailable.");
+        } else if (embeddingMethod.equalsIgnoreCase("ollama")
+                || embeddingMethod.equalsIgnoreCase("tinyllama")) {
             methodEmbeddingModel = OllamaEmbeddingModel.builder()
                     .baseUrl(baseUrl)
                     .modelName("tinyllama")
                     .build();
-            //TODO: messages.properties
+        } else {
+            throw new IllegalArgumentException("Unsupported embedding method: " + embeddingMethod);
         }
         return methodEmbeddingModel;
     }

@@ -25,9 +25,11 @@ import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import org.dirchat.controller.UIController;
+import org.dirchat.util.ConfigManager;
+import org.dirchat.util.LogMessages;
+import org.dirchat.util.Messages;
 
 import java.nio.file.Path;
-import java.util.ResourceBundle;
 
 public class MainApp extends Application {
 
@@ -54,22 +56,23 @@ public class MainApp extends Application {
                 }
             }
         } catch (Exception e) {
-            org.dirchat.util.LogMessages.logWarning(e.getMessage());
-            System.err.println("Failed to clear log or delete .lck files: " + e.getMessage());
+            LogMessages.logWarning("Could not clear previous log files.", e);
         }
     }
 
     @Override
     public void start( Stage mainStage) throws Exception {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/MainView.fxml"));
+        Messages.setLanguage(ConfigManager.getLanguage());
+        FXMLLoader loader = new FXMLLoader(
+                getClass().getResource("/view/MainView.fxml"),
+                Messages.getBundle());
         Scene scene = new Scene(loader.load());
 
         UIController controller = loader.getController();
         mainStage.setOnCloseRequest( event -> controller.shutdown());
 
         // Set window title
-        String windowTitle = ResourceBundle.getBundle("messages").getString("window.title").trim();
-        mainStage.setTitle(windowTitle);
+        mainStage.setTitle(Messages.get("app.window.title"));
 
         // Set window/taskbar icon
         var runtimeClass = getClass();

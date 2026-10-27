@@ -2,45 +2,92 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<TabPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
+<TabPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" tabClosingPolicy="UNAVAILABLE">
     <tabs>
-        <Tab text="*Display">
-            <VBox spacing="12">
-                <padding>
-                    <Insets top="18" right="18" bottom="18" left="18"/>
-                </padding>
-                <Label text="*Language" fx:id="languageLabel" />
-                <ComboBox fx:id="languageComboBox" />
-                <Label text="*Theme" fx:id="themeLabel" />
-                <ComboBox fx:id="themeComboBox" />
-            </VBox>
+        <Tab fx:id="displayTab" text="%config.tab.display">
+            <content>
+                <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
+                    <content>
+                        <GridPane hgap="12" vgap="10">
+                            <padding>
+                                <Insets top="18" right="18" bottom="18" left="18"/>
+                            </padding>
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="170"/>
+                                <ColumnConstraints minWidth="250" hgrow="ALWAYS"/>
+                            </columnConstraints>
+                            <Label fx:id="languageLabel" text="%config.display.language"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <ComboBox fx:id="languageComboBox" maxWidth="Infinity"
+                                      GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                            <Label fx:id="themeLabel" text="%config.display.theme"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <ComboBox fx:id="themeComboBox" maxWidth="Infinity"
+                                      GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                        </GridPane>
+                    </content>
+                </ScrollPane>
+            </content>
         </Tab>
-        <Tab text="*Embeddings">
-            <VBox spacing="12">
-                <padding>
-                    <Insets top="18" right="18" bottom="18" left="18"/>
-                </padding>
-                <CheckBox text="*Regenerate" fx:id="deleteIndexCheckBox" selected="true" />
-                <Label text="*Paragraphs per chunk" fx:id="paragraphsLabel" />
-                <TextField fx:id="paragraphsField" />
-                <Label text="*Paragraph overlap" fx:id="overlapLabel" />
-                <TextField fx:id="overlapField" />
-                <Label text="*Ollama URL" fx:id="ollamaUrlLabel" />
-                <TextField fx:id="ollamaUrlField" />
-                <Label text="*Top K" fx:id="topKLabel" />
-                <TextField fx:id="topKField" />
-                <Label text="*Chunk character limit" fx:id="chunkLimitLabel" />
-                <TextField fx:id="chunkLimitField" />
-                <Label text="*Min score" fx:id="minScoreLabel" />
-                <TextField fx:id="minScoreField" />
-                <Label text="*Output mode" fx:id="outputModeLabel" />
-                <ComboBox fx:id="outputModeComboBox" />
-                <Label text="*Indexing method" fx:id="methodLabel" />
-                <ComboBox fx:id="methodSelector" />
-                <Label text="*Query answer" fx:id="queryAnswerLabel" />
-                <CheckBox fx:id="queryAnswerCheckBox" />
-                <Button text="*Save" fx:id="saveButton" />
-            </VBox>
+        <Tab fx:id="embeddingsTab" text="%config.tab.indexing">
+            <content>
+                <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
+                    <content>
+                        <GridPane hgap="12" vgap="10">
+                            <padding>
+                                <Insets top="18" right="18" bottom="18" left="18"/>
+                            </padding>
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="170"/>
+                                <ColumnConstraints minWidth="250" hgrow="ALWAYS"/>
+                            </columnConstraints>
+                            <Label fx:id="deleteIndexLabel" text="%config.indexing.regenerate"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <CheckBox fx:id="deleteIndexCheckBox"
+                                      GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                            <Label fx:id="paragraphsLabel" text="%config.indexing.paragraphs"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <TextField fx:id="paragraphsField" maxWidth="Infinity"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                            <Label fx:id="overlapLabel" text="%config.indexing.overlap"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <TextField fx:id="overlapField" maxWidth="Infinity"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                            <Label fx:id="ollamaUrlLabel" text="%config.models.ollama-url"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                            <TextField fx:id="ollamaUrlField" maxWidth="Infinity"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+                            <Label fx:id="topKLabel" text="%config.retrieval.top-k"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                            <TextField fx:id="topKField" maxWidth="Infinity"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+                            <Label fx:id="chunkLimitLabel" text="%config.indexing.chunk-limit"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+                            <TextField fx:id="chunkLimitField" maxWidth="Infinity"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="5"/>
+                            <Label fx:id="minScoreLabel" text="%config.retrieval.minimum-score"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="6"/>
+                            <TextField fx:id="minScoreField" maxWidth="Infinity"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="6"/>
+                            <Label fx:id="outputModeLabel" text="%config.augmentation.output-mode"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="7"/>
+                            <ComboBox fx:id="outputModeComboBox" maxWidth="Infinity"
+                                      GridPane.columnIndex="1" GridPane.rowIndex="7"/>
+                            <Label fx:id="methodLabel" text="%config.indexing.method"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="8"/>
+                            <ComboBox fx:id="methodSelector" maxWidth="Infinity"
+                                      GridPane.columnIndex="1" GridPane.rowIndex="8"/>
+                            <Label fx:id="queryAnswerLabel" text="%config.chat.answers-enabled"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="9"/>
+                            <CheckBox fx:id="queryAnswerCheckBox"
+                                      GridPane.columnIndex="1" GridPane.rowIndex="9"/>
+                            <Button fx:id="saveButton" text="%config.action.save"
+                                    GridPane.columnIndex="1" GridPane.rowIndex="10"
+                                    GridPane.halignment="RIGHT" onAction="#saveConfig"/>
+                        </GridPane>
+                    </content>
+                </ScrollPane>
+            </content>
         </Tab>
     </tabs>
 </TabPane>

@@ -104,7 +104,7 @@ public class ChatService implements Closeable {
             throw new IllegalStateException("Failed to connect to LanguageModel: " + e.getMessage(), e);
         }
 
-        LogMessages.log("ChatService initialized with embedding model: " +
+        LogMessages.debug("ChatService initialized with embedding model: " +
                 embeddingModel.getClass().getSimpleName() +
                 " and language model: " +
                 languageModel.getClass().getSimpleName());
@@ -122,10 +122,10 @@ public class ChatService implements Closeable {
         try {
             results = vectorStore.compoundSearchWithScores(queryVector, ConfigManager.getTopK());
         } catch (IOException e) {
-            LogMessages.logWarning("Failed to search vector store (I/O): " + e.getMessage());
+            LogMessages.logWarning("Could not search the vector store due to an I/O error.", e);
             throw new RuntimeException(e);
         } catch (SQLException e) {
-            LogMessages.logWarning("Failed to search vector store (SQL): " + e.getMessage());
+            LogMessages.logWarning("Could not search the vector store due to a database error.", e);
             throw new RuntimeException(e);
         }
         return results;
@@ -158,17 +158,15 @@ public class ChatService implements Closeable {
         stringPrompt += "\n\nThe question is:\n" + question;
 
 
-        LogMessages.log("Q:" + stringPrompt);
         dev.langchain4j.model.output.Response<String> response = languageModel.generate(stringPrompt);
         // Obtain response
         String answer = response.content();
-        LogMessages.log("RE:" + answer);
         return answer;
     }
 
     @Override
     public void close() throws IOException {
-        LogMessages.log("ChatService closed.");
+        LogMessages.debug("ChatService closed.");
     }
 
     // Helper to retrieve chunk cursorPointer by chunkId from the database via VectorStore
@@ -186,13 +184,10 @@ public class ChatService implements Closeable {
             org.dirchat.document.StreamSplitter splitter = new org.dirchat.document.StreamSplitter((int)cursorPointer);
             try (java.io.InputStream stream = new java.io.FileInputStream(sourceFilePath)) {
                 parser.parse(stream, splitter, metadata, context);
-            } finally {
-                LogMessages.log("Reader FileInputStream closed at line 85");
             }
             return splitter.getExtractedChunk();
         } catch (Exception e) {
-            org.dirchat.util.LogMessages.log("Error extracting chunk content for chunkId " + chunkId + ": " + e.getMessage());
-            e.printStackTrace(); // Log full
+            LogMessages.logWarning("Could not extract a requested document chunk.", e);
         }
         return null;
     }
@@ -212,8 +207,6 @@ public class ChatService implements Closeable {
                     throw new RuntimeException("prompt.txt not found in resources");
                 }
                 startPromptCache = new String(is.readAllBytes()).trim();
-            } finally {
-                LogMessages.log("Reader InputStream closed at line 210");
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to read prompt file from resources", e);

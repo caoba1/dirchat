@@ -73,10 +73,11 @@ This package-based organization keeps the codebase modular and maintainable. All
 ## Getting Started
 1. **Clone the repository**
 2. **Start Ollama locally or on your server** (see [Ollama docs](https://ollama.com/))
-4. **Build the project**
+3. **Compile the project**
    ```sh
-   mvn clean install 
-5. **Run the application**
+   mvn compile
+   ```
+4. **Run the application**
    ```sh
    mvn javafx:run
    ```

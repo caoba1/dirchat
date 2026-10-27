@@ -136,7 +136,6 @@ public class StreamSplitter implements ContentHandler {
 
         cursorPointer.addAndGet(thisChunk.length() - CHUNK_OVERLAP);
         // For demonstration, we just print the chunk size
-        System.out.println("Processed chunk of size: " + thisChunk.length());
     }
 
     private boolean dirchatStoreChunk(Chunk chunk, String chunkText) {

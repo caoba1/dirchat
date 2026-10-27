@@ -8,57 +8,62 @@ package org.dirchat.util;
 
 import java.util.logging.Logger;
 import java.util.logging.FileHandler;
+import java.util.logging.Level;
 import java.util.logging.SimpleFormatter;
+import java.io.IOException;
+import java.util.Locale;
 
 public class LogMessages {
     private static final Logger logger = Logger.getLogger(LogMessages.class.getName());
 
-    private static org.dirchat.controller.UIController uiController = null;
-
     static {
+        logger.setLevel(configuredLevel());
         try {
             FileHandler fh = new FileHandler("dirchat.log", true);
             fh.setFormatter(new SimpleFormatter());
+            fh.setLevel(Level.ALL);
             logger.addHandler(fh);
             logger.setUseParentHandlers(true);
-        } catch (Exception e) {
-            System.err.println("Failed to set up logger in LogMessages: " + e.getMessage());
+        } catch (IOException e) {
+            Logger.getLogger(LogMessages.class.getName())
+                    .log(Level.WARNING, "Could not initialize the file logger.", e);
         }
     }
-    // Log message keys for messages.properties TODO: remove
-    public static final String LOADING_FOLDER = "LOADING_FOLDER";
-    public static final String LOADED_EMBEDDINGS = "LOADED_EMBEDDINGS";
-    public static final String GENERATED_INDEX = "GENERATED_INDEX";
-    public static final String QUESTION = "QUESTION";
-    public static final String ANSWER = "ANSWER";
-    public static final String FAILED_TO_LOAD_INDEX = "FAILED_TO_LOAD_INDEX";
-    public static final String FAILED_TO_SAVE_INDEX = "FAILED_TO_SAVE_INDEX";
-    public static final String DOCUMENTS_INDEXED = "DOCUMENTS_INDEXED";
 
-    public static void setUIController(org.dirchat.controller.UIController controller) {
-        uiController = controller;
+    private static Level configuredLevel() {
+        String value = System.getProperty("dirchat.log.level", "INFO").trim().toUpperCase(Locale.ROOT);
+        if ("DEBUG".equals(value)) {
+            return Level.FINE;
+        }
+        if ("TRACE".equals(value)) {
+            return Level.FINER;
+        }
+        try {
+            return Level.parse(value);
+        } catch (IllegalArgumentException e) {
+            logger.warning("Invalid dirchat.log.level value; using INFO.");
+            return Level.INFO;
+        }
+    }
+
+    public static void debug(String message) {
+        logger.fine(message);
     }
 
     public static void log(String message) {
-        log(message, false);
-    }
-
-    public static void log(String message, boolean bypassUI) {
         logger.info(message);
-        if (!bypassUI && uiController != null) {
-            uiController.setMessageBar(message);
-        }
     }
 
     public static void logWarning(String message) {
-        logWarning(message, false);
+        logger.warning(message);
     }
 
-    public static void logWarning(String message, boolean bypassUI) {
-        logger.warning(message);
-        if (!bypassUI && uiController != null) {
-            uiController.setMessageBar(message);
-        }
+    public static void logWarning(String message, Throwable error) {
+        logger.log(Level.WARNING, message, error);
+    }
+
+    public static void logError(String message, Throwable error) {
+        logger.log(Level.SEVERE, message, error);
     }
 
 }

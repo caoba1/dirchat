@@ -11,6 +11,7 @@ import org.dirchat.document.DocumentLoader;
 import org.dirchat.document.StreamSplitter;
 import org.dirchat.util.ConfigManager;
 import org.dirchat.util.Dirchat;
+import org.dirchat.util.Messages;
 import javafx.application.Platform;
 import java.io.File;
 import java.nio.file.DirectoryStream;
@@ -28,7 +29,7 @@ public class IndexingTask extends Task<Void> {
     private final VectorStore vectorStore;
     private final ProgressDialog progressDialog;
     private List<DocumentLoader.LoadedDocument> loadedDocuments;
-    private final Dirchat.ResourceBundleWrapper messages = new Dirchat.ResourceBundleWrapper("messages");
+    private final java.util.ResourceBundle messages = Messages.getBundle();
 
     public IndexingTask( VectorStore vectorStore, ProgressDialog progressDialog) {
         this.folder = vectorStore.getFolder().toFile();
@@ -37,14 +38,14 @@ public class IndexingTask extends Task<Void> {
     }
 
     @Override
-    protected Void call() {
+    protected Void call() throws Exception {
         // Move your indexing logic here (from handleLoadFolder)
         // Update progressDialog and loadedDocuments as needed
         try {
             List<DocumentLoader.LoadedDocument> docs = new java.util.ArrayList<>();
-            LogMessages.log("[Indexing] Task started");
+            LogMessages.debug("[Indexing] Task started");
             if (vectorStore.indexExists()) {
-                LogMessages.log("[Indexing] Index exists, loading from DB");
+                LogMessages.debug("[Indexing] Index exists, loading from DB");
 
                 // loading document ids
                 List<DocumentLoader.LoadedDocument> loadedDocs = vectorStore.loadIndexing();
@@ -68,9 +69,9 @@ public class IndexingTask extends Task<Void> {
                     }
                 }
 
-                updateMessage(messages.getString("status.indexLoaded"));
+                updateMessage(messages.getString("indexing.status.loaded"));
             } else {
-                LogMessages.log("[Indexing] Index does not exist or is not complete. Processing files");
+                LogMessages.debug("[Indexing] Index does not exist or is not complete. Processing files");
 
                 File folderFileInstance = folder.getParentFile();
                 File[] files = folderFileInstance.listFiles();
@@ -84,15 +85,15 @@ public class IndexingTask extends Task<Void> {
                 );
                 for (File file : files) {
                     if (progressDialog.isCancelled() || isCancelled()) {
-                        LogMessages.log("[Indexing] Cancelled by user (file loop)");
-                        updateMessage(messages.getString("status.folderLoadCancelled"));
+                        LogMessages.debug("[Indexing] Cancelled by user (file loop)");
+                        updateMessage(messages.getString("indexing.status.cancelled"));
                         break;
                     }
 
                     if (file.isFile() && Dirchat.isSupported(file.toPath())) {
                         count.incrementAndGet();
-                        LogMessages.log("[Indexing] Processing file: " + file.getName());
-                        updateMessage(messages.getString("progress.loadingFile").replace("{0}", file.getName()));
+                        LogMessages.debug("[Indexing] Processing file: " + file.getName());
+                        updateMessage(Messages.format("indexing.progress.loading-file", file.getName()));
                         Platform.runLater(() -> {
                             progressDialog.setFileName(file.getName());
                             progressDialog.setProgress((double) count.get() / total);
@@ -123,23 +124,21 @@ public class IndexingTask extends Task<Void> {
                         Platform.runLater(() -> progressDialog.setFileProgress(1));
                     }
                 }
-                updateMessage(messages.getString("status.indexLoaded"));
+                updateMessage(messages.getString("indexing.status.loaded"));
             }
             loadedDocuments = docs; // Todo: load at step
-            LogMessages.log("[Indexing] Task completed");
+            LogMessages.debug("[Indexing] Task completed");
         } catch (Exception e) {
-            if (e instanceof java.net.ConnectException ||
-                    e.getCause() instanceof java.net.ConnectException) {
-                    LogMessages.logWarning("[Indexing] Connection error: " + e.getMessage());
-                //updateMessage(messages.getString("error.connectionError") + ": " + e.getMessage());
-                } else if (e instanceof org.apache.tika.exception.TikaException) {
-                    LogMessages.logWarning("[Indexing] Tika Exception: " + e.getMessage());
-                //updateMessage(messages.getString("status.folderLoadError") + ": " + e.getMessage());
-                } else {
-                    LogMessages.logWarning("[Indexing] Exception: " + e.getMessage());
-                //updateMessage(messages.getString("status.folderLoadError") + ": " + e.getMessage());
+            String messageKey = "indexing.error.general";
+            if (e instanceof java.net.ConnectException
+                    || e.getCause() instanceof java.net.ConnectException) {
+                messageKey = "indexing.error.connection";
+            } else if (e instanceof org.apache.tika.exception.TikaException) {
+                messageKey = "indexing.error.document";
             }
-            this.cancel(); // TODO -> Override call(), succeded() and call cancel() on failed.
+            progressDialog.setMessage(Messages.get(messageKey));
+            LogMessages.logWarning("Indexing task failed.", e);
+            throw e;
         }
         return null;
     }

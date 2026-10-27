@@ -51,12 +51,13 @@
             <VBox spacing="6" style="-fx-background-color: #f8fbff; -fx-padding: 10;">
                 <TableView fx:id="indexStatusTable" VBox.vgrow="ALWAYS" focusTraversable="true">
                     <placeholder>
-                        <Label text="*Select a folder to load files." style="-fx-font-size: 14; -fx-text-fill: gray;" />
+                        <Label fx:id="tablePlaceholderLabel" text="%search.files.placeholder"
+                               style="-fx-font-size: 14; -fx-text-fill: gray;" />
                     </placeholder>
                     <columns>
-                        <TableColumn fx:id="fileNameColumn" text="*Filename" prefWidth="220"/>
-                        <TableColumn fx:id="scoreColumn" text="*Score" prefWidth="60"/>
-                        <TableColumn fx:id="openColumn" text="*Open" prefWidth="60"/>
+                        <TableColumn fx:id="fileNameColumn" text="%search.table.filename" prefWidth="220"/>
+                        <TableColumn fx:id="scoreColumn" text="%search.table.score" prefWidth="60"/>
+                        <TableColumn fx:id="openColumn" text="%search.table.open" prefWidth="60"/>
                     </columns>
                 </TableView>
             </VBox> <!-- Second box in SplitPane is the right hand side -->
@@ -74,7 +75,7 @@
                     <HBox spacing="10" HBox.hgrow="ALWAYS">
                         <!-- QUESTION AND SEARCH -->
                         <TextArea fx:id="questionField"
-                                  promptText="*Type your question here..."
+                                  promptText="%search.prompt"
                                   wrapText="true"
                                   HBox.hgrow="ALWAYS"
                                   focusTraversable="true"

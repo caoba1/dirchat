@@ -52,15 +52,11 @@ public class DocumentLoader {
             }
         }
         catch (Exception e) {
-            LogMessages.logWarning("DocumentLoader: Folder path does not exist or is not a directory: " + folderPathStr);
+            LogMessages.logWarning("Could not enumerate the requested directory.", e);
         }
     }
 
     private final Tika tika = new Tika(); //Todo: are we using Tika or other stuff?
-
-    // Allows the UI to register a callback for message bar updates.
-    // This decouples backend logic from the UI, so DocumentLoader can notify the user without knowing about UI classes.
-    private static java.util.function.Consumer<String> messageBarSetter;
 
     public static class LoadedDocument {
         private final int documentId; //unique accross documents. from path.hashCode()
@@ -116,16 +112,9 @@ public class DocumentLoader {
                 try (InputStream stream = Files.newInputStream(absolutePath)) {
                     parser.parse(stream, handler, metadata, context);
                 } catch (WriteLimitReachedException e) {
-                    System.out.println("Content extraction stopped after 1 byte (expected behavior).");
+                    LogMessages.debug("Document text extraction reached its configured write limit.");
                 } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    for (String name : metadata.names()) {
-                        if (!name.isEmpty()) {
-                            LogMessages.log("Metadata: " + name + " = " + metadata.get(name));
-                        }
-                    }
-                    LogMessages.log("Finally for Metada input stream closed.");
+                    LogMessages.logWarning("Could not extract document text.", e);
                 }
             });
 
@@ -133,19 +122,16 @@ public class DocumentLoader {
                 future.get(10, TimeUnit.SECONDS); // 10 second timeout
             } catch (TimeoutException e) {
                 future.cancel(true);
-                System.err.println("Parsing timed out.");
-                LogMessages.logWarning("Parsing timed out for: " + absolutePath);
+                LogMessages.logWarning("Document parsing timed out.", e);
                 executor.shutdownNow();
                 return false;
             } catch (Exception e) {
                 executor.shutdownNow();
-                e.printStackTrace();
+                LogMessages.logWarning("Document parsing failed.", e);
                 return false;
             }
             executor.shutdown();
 
-            String mediaType = metadata.get(Metadata.CONTENT_TYPE);
-            LogMessages.log("Extracted media type: " + mediaType);
             return true;
         }
 
@@ -197,7 +183,7 @@ public class DocumentLoader {
             try {
                 return (long) (Files.size(absolutePath)/1.5);
             } catch (IOException e) {
-                LogMessages.logWarning("Failed to get file size for character count estimation: " + e.getMessage());
+                LogMessages.logWarning("Could not estimate document character count.", e);
                 return 0L;
             }
         }
@@ -223,7 +209,7 @@ public class DocumentLoader {
                 this.numberOfPages = numPages;
             } catch (Exception e) {
                 sb.append("[Error extracting PDF TOC: ").append(e.getMessage()).append("]");
-                LogMessages.logWarning("Error extracting PDF TOC: " + e.getMessage());
+                LogMessages.logWarning("Could not extract the PDF table of contents.", e);
             }
             this.toc = sb.toString();
             return true;
