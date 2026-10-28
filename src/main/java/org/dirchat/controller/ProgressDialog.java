@@ -38,7 +38,6 @@ public class ProgressDialog {
     private final ProgressBar progressBar;
     private final Label fileLabel;
     private final ProgressBar fileProgressBar;
-    private final java.util.ResourceBundle messages = Messages.getBundle();
     private boolean cancelled = false;
     private final Button cancelButton;
 
@@ -46,7 +45,7 @@ public class ProgressDialog {
         dialogStage = new Stage();
         dialogStage.initOwner(owner);
         dialogStage.initModality(Modality.APPLICATION_MODAL);
-        dialogStage.setTitle(messages.getString("indexing.progress.title"));
+        dialogStage.setTitle(Messages.get("indexing.progress.title"));
 
         messageLabel = new Label(initialMessage);
         fileLabel = new Label("");
@@ -56,7 +55,7 @@ public class ProgressDialog {
         fileProgressBar.setPrefWidth(300);
 
 
-        cancelButton = new Button(messages.getString("indexing.progress.cancel"));
+        cancelButton = new Button(Messages.get("indexing.progress.cancel"));
         cancelButton.setOnAction(e -> {
             cancelled = true;
             close();

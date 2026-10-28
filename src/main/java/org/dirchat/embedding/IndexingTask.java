@@ -29,7 +29,6 @@ public class IndexingTask extends Task<Void> {
     private final VectorStore vectorStore;
     private final ProgressDialog progressDialog;
     private List<DocumentLoader.LoadedDocument> loadedDocuments;
-    private final java.util.ResourceBundle messages = Messages.getBundle();
 
     public IndexingTask( VectorStore vectorStore, ProgressDialog progressDialog) {
         this.folder = vectorStore.getFolder().toFile();
@@ -69,7 +68,7 @@ public class IndexingTask extends Task<Void> {
                     }
                 }
 
-                updateMessage(messages.getString("indexing.status.loaded"));
+                updateMessage(Messages.get("indexing.status.loaded"));
             } else {
                 LogMessages.debug("[Indexing] Index does not exist or is not complete. Processing files");
 
@@ -86,7 +85,7 @@ public class IndexingTask extends Task<Void> {
                 for (File file : files) {
                     if (progressDialog.isCancelled() || isCancelled()) {
                         LogMessages.debug("[Indexing] Cancelled by user (file loop)");
-                        updateMessage(messages.getString("indexing.status.cancelled"));
+                        updateMessage(Messages.get("indexing.status.cancelled"));
                         break;
                     }
 
@@ -124,7 +123,7 @@ public class IndexingTask extends Task<Void> {
                         Platform.runLater(() -> progressDialog.setFileProgress(1));
                     }
                 }
-                updateMessage(messages.getString("indexing.status.loaded"));
+                updateMessage(Messages.get("indexing.status.loaded"));
             }
             loadedDocuments = docs; // Todo: load at step
             LogMessages.debug("[Indexing] Task completed");

@@ -20,7 +20,6 @@ public class QueryAnswerTask extends Task<String>{
     private final String question;
     private final VectorStore vectorStore;
     private final List<DocumentLoader.LoadedDocument> loadedDocuments;
-    private final java.util.ResourceBundle messages = Messages.getBundle();
     private final UIController uiController;
     public QueryAnswerTask(VectorStore vectorStore,
                            List<DocumentLoader.LoadedDocument> loadedDocuments,
@@ -43,14 +42,14 @@ public class QueryAnswerTask extends Task<String>{
                 answer = chatService.answerTopDocuments(question);
             }
             else {
-                answer = messages.getString("chat.answer.disabled");
+                answer = Messages.get("chat.answer.disabled");
             }
             String citations = chatService.getTopDocumentCitations();
-            citations = "\n\n" + messages.getString("chat.citations.header") + "\n" + citations;
+            citations = "\n\n" + Messages.get("chat.citations.header") + "\n" + citations;
             answer = answer.concat(citations);
         } catch (Exception ex) {
             LogMessages.logWarning("Could not generate a chat answer.", ex);
-            answer = messages.getString("chat.answer.failed");
+            answer = Messages.get("chat.answer.failed");
             throw ex;
         }
         return answer;

@@ -45,7 +45,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.ResourceBundle;
 import java.util.concurrent.Future;
 import java.util.LinkedHashMap;
 import java.util.concurrent.Executors;
@@ -92,8 +91,6 @@ public class UIController {
     @FXML
     private ImageView logoImageView;
 
-    private ResourceBundle messages;
-
     private String selectedFolder;
     private VectorStore vectorStore;
     private IndexStatus currentIndexStatus = IndexStatus.NOT_SELECTED;
@@ -110,7 +107,6 @@ public class UIController {
 
     @FXML
     public void initialize() {
-        messages = Messages.getBundle();
         refreshLocalizedText();
 
         loadFolderButton.setOnAction(e -> handleLoadFolder());
@@ -177,7 +173,7 @@ public class UIController {
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
-                openButton.setText(messages.getString("directory.file.open"));
+                openButton.setText(Messages.get("directory.file.open"));
                 setGraphic(empty ? null : openButton);
             }
         });
@@ -218,27 +214,26 @@ public class UIController {
     }
 
     public void refreshLocalizedText() {
-        messages = Messages.getBundle();
-        loadFolderButton.setText(messages.getString("directory.load.action"));
-        loadFolderButton.setTooltip(new Tooltip(messages.getString("directory.load.tooltip")));
+        loadFolderButton.setText(Messages.get("directory.load.action"));
+        loadFolderButton.setTooltip(new Tooltip(Messages.get("directory.load.tooltip")));
         folderLabel.setText(selectedFolder == null
-                ? messages.getString("directory.selection.none")
+                ? Messages.get("directory.selection.none")
                 : Messages.format("directory.selection.selected", selectedFolder));
-        questionField.setPromptText(messages.getString("search.prompt"));
-        askButton.setText(messages.getString("search.action.ask"));
-        askButton.setTooltip(new Tooltip(messages.getString("search.action.ask.tooltip")));
-        exportChatButton.setText(messages.getString("export.action"));
-        exportChatButton.setTooltip(new Tooltip(messages.getString("export.action.tooltip")));
-        resetChatButton.setText(messages.getString("chat.action.reset"));
-        resetChatButton.setTooltip(new Tooltip(messages.getString("chat.action.reset.tooltip")));
-        configButton.setText(messages.getString("config.action.open"));
-        configButton.setTooltip(new Tooltip(messages.getString("config.action.open.tooltip")));
-        tablePlaceholderLabel.setText(messages.getString("search.files.placeholder"));
-        fileNameColumn.setText(messages.getString("search.table.filename"));
-        scoreColumn.setText(messages.getString("search.table.score"));
-        openColumn.setText(messages.getString("search.table.open"));
+        questionField.setPromptText(Messages.get("search.prompt"));
+        askButton.setText(Messages.get("search.action.ask"));
+        askButton.setTooltip(new Tooltip(Messages.get("search.action.ask.tooltip")));
+        exportChatButton.setText(Messages.get("export.action"));
+        exportChatButton.setTooltip(new Tooltip(Messages.get("export.action.tooltip")));
+        resetChatButton.setText(Messages.get("chat.action.reset"));
+        resetChatButton.setTooltip(new Tooltip(Messages.get("chat.action.reset.tooltip")));
+        configButton.setText(Messages.get("config.action.open"));
+        configButton.setTooltip(new Tooltip(Messages.get("config.action.open.tooltip")));
+        tablePlaceholderLabel.setText(Messages.get("search.files.placeholder"));
+        fileNameColumn.setText(Messages.get("search.table.filename"));
+        scoreColumn.setText(Messages.get("search.table.score"));
+        openColumn.setText(Messages.get("search.table.open"));
         if (toggleFilesButton != null) {
-            toggleFilesButton.setText(messages.getString(
+            toggleFilesButton.setText(Messages.get(
                     showingScoredFiles ? "search.files.show-all" : "search.files.show-scored"));
         }
         indexStatusTable.refresh();
@@ -262,10 +257,10 @@ public class UIController {
     //TODO: Refactor to a leaner code.
     private void handleLoadFolder() {
         DirectoryChooser chooser = new DirectoryChooser();
-        chooser.setTitle(messages.getString("directory.dialog.select.title"));
+        chooser.setTitle(Messages.get("directory.dialog.select.title"));
         File folder = chooser.showDialog(mainBorderPane.getScene().getWindow());
         if (folder == null) {
-            setMessageBar(messages.getString("indexing.status.cancelled"));
+            setMessageBar(Messages.get("indexing.status.cancelled"));
             return;
         }
         selectedFolder = folder.getAbsolutePath(); //TODO: Change to path.
@@ -281,7 +276,7 @@ public class UIController {
         vectorStore = new VectorStore(selectedFolder);
         ProgressDialog progressDialog = new ProgressDialog(
                 (Stage) mainBorderPane.getScene().getWindow(),
-                messages.getString("indexing.progress.started"));
+                Messages.get("indexing.progress.started"));
         progressDialog.show();
         mainBorderPane.setCursor(Cursor.WAIT);
         javafx.concurrent.Task<Void> loadTask = new IndexingTask( vectorStore, progressDialog );
@@ -295,7 +290,7 @@ public class UIController {
                 progressDialog.close();
                 mainBorderPane.setCursor(Cursor.DEFAULT);
                 folderLabel.setText(Messages.format("directory.selection.selected", selectedFolder));
-                setMessageBar(messages.getString("indexing.status.loaded"));
+                setMessageBar(Messages.get("indexing.status.loaded"));
                 indexStatusTable.getItems().clear();
                 indexStatusTable.getItems().addAll(loadedDocuments);
                 askButton.setDisable(false);
@@ -305,13 +300,13 @@ public class UIController {
         loadTask.setOnCancelled(e -> Platform.runLater(() -> {
             progressDialog.close();
             mainBorderPane.setCursor(Cursor.DEFAULT);
-            setMessageBar(messages.getString("indexing.status.cancelled"));
+            setMessageBar(Messages.get("indexing.status.cancelled"));
             updateIndexLoadedIndicator(IndexStatus.NOT_SELECTED);
         }));
         loadTask.setOnFailed(e -> Platform.runLater(() -> {
             progressDialog.close();
             mainBorderPane.setCursor(Cursor.DEFAULT);
-            setMessageBar(messages.getString("indexing.status.failed"), "red");
+            setMessageBar(Messages.get("indexing.status.failed"), "red");
             updateIndexLoadedIndicator(IndexStatus.FAILED);
         }));
         futures.add(executorService.submit(loadTask));
@@ -321,7 +316,7 @@ public class UIController {
         chatListView.getItems().clear();
         indexStatusTable.getItems().clear();
         indexStatusTable.getItems().addAll(loadedDocuments);
-        setMessageBar(messages.getString("chat.status.reset"));
+        setMessageBar(Messages.get("chat.status.reset"));
     }
 
     public void shutdown() {
@@ -355,14 +350,14 @@ public class UIController {
         });
         askTask.setOnFailed(e -> {
             mainBorderPane.setCursor(Cursor.DEFAULT);
-            setMessageBar(messages.getString("chat.answer.failed"), "red");
+            setMessageBar(Messages.get("chat.answer.failed"), "red");
             if (askTask.getException() != null) {
                 LogMessages.logWarning("Chat answer task failed.", askTask.getException());
             }
         });
         askTask.setOnCancelled(e -> {
             mainBorderPane.setCursor(Cursor.DEFAULT);
-            setMessageBar(messages.getString("chat.status.cancelled"));
+            setMessageBar(Messages.get("chat.status.cancelled"));
         });
         mainBorderPane.setCursor(Cursor.WAIT);
         futures.add(executorService.submit(askTask));
@@ -376,7 +371,7 @@ public class UIController {
             Desktop.getDesktop().open(doc.absolutePath.toFile());
         } catch (Exception e) {
             LogMessages.logWarning("Could not open a selected document.", e);
-            setMessageBar(messages.getString("directory.file.open.error"), "red");
+            setMessageBar(Messages.get("directory.file.open.error"), "red");
         }
     }
 
@@ -422,17 +417,17 @@ public class UIController {
         hasIndexStatus = true;
         switch (status) {
             case LOADED:
-                indexLoadedIndicator.setText(messages.getString("indexing.indicator.loaded"));
+                indexLoadedIndicator.setText(Messages.get("indexing.indicator.loaded"));
                 indexLoadedIndicator.setStyle("-fx-font-size: 18; -fx-text-fill: green;");
                 indexLoadedIndicator.setVisible(true);
                 break;
             case FAILED:
-                indexLoadedIndicator.setText(messages.getString("indexing.indicator.failed"));
+                indexLoadedIndicator.setText(Messages.get("indexing.indicator.failed"));
                 indexLoadedIndicator.setStyle("-fx-font-size: 18; -fx-text-fill: red;");
                 indexLoadedIndicator.setVisible(true);
                 break;
             case NOT_SELECTED:
-                indexLoadedIndicator.setText(messages.getString("indexing.indicator.not-selected"));
+                indexLoadedIndicator.setText(Messages.get("indexing.indicator.not-selected"));
                 indexLoadedIndicator.setStyle("-fx-font-size: 18; -fx-text-fill: orange;");
                 indexLoadedIndicator.setVisible(true);
                 break;
@@ -442,13 +437,13 @@ public class UIController {
     private void exportChatHistory() {
         java.util.List<String> chat = chatListView.getItems();
         if (chat == null || chat.isEmpty()) {
-            setMessageBar(messages.getString("export.status.empty"));
+            setMessageBar(Messages.get("export.status.empty"));
             return;
         }
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle(messages.getString("export.dialog.title"));
+        fileChooser.setTitle(Messages.get("export.dialog.title"));
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
-                messages.getString("export.filter.text"), "*.txt"));
+                Messages.get("export.filter.text"), "*.txt"));
         File file = fileChooser.showSaveDialog(mainBorderPane.getScene().getWindow());
         if (file != null) {
             try (java.io.BufferedWriter out = java.nio.file.Files.newBufferedWriter(
@@ -469,7 +464,7 @@ public class UIController {
         if (showingScoredFiles) {
             // Show all loaded files
             indexStatusTable.getItems().setAll(loadedDocuments);
-            toggleFilesButton.setText(messages.getString("search.files.show-scored"));
+            toggleFilesButton.setText(Messages.get("search.files.show-scored"));
             showingScoredFiles = false;
         } else {
             // Show only scored files
@@ -484,7 +479,7 @@ public class UIController {
                 })
                 .toList();
             indexStatusTable.getItems().setAll(scored);
-            toggleFilesButton.setText(messages.getString("search.files.show-all"));
+            toggleFilesButton.setText(Messages.get("search.files.show-all"));
             showingScoredFiles = true;
         }
     }
