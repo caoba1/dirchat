@@ -142,7 +142,8 @@ public class VectorStore {
                 + "number_pages INTEGER,"
                 + "filetype TEXT,"
                 + "toc TEXT,"
-                + "metadata TEXT"
+                + "metadata TEXT,"
+                + "indexed INTEGER NOT NULL DEFAULT 0"
                 + ")";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.executeUpdate();
@@ -328,7 +329,7 @@ public class VectorStore {
         if (!Files.isRegularFile(databasePath)) {
             return false;
         }
-        String countSql = "SELECT COUNT(*) FROM table_document";
+        String countSql = "SELECT COUNT(*) FROM table_document WHERE indexed = 1";
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + databasePath.toAbsolutePath())) {
             try (PreparedStatement statement = conn.prepareStatement(countSql);
                  ResultSet results = statement.executeQuery()) {
@@ -344,7 +345,7 @@ public class VectorStore {
     public List<DocumentLoader.LoadedDocument> loadIndexing() throws IOException {
         List<DocumentLoader.LoadedDocument> loadedDocs = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath.toString())) {
-            String sql = "SELECT document_id FROM table_document";
+            String sql = "SELECT document_id FROM table_document WHERE indexed = 1";
             try (PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     int documentId = rs.getInt("document_id");
@@ -425,6 +426,15 @@ public class VectorStore {
                 pstmt.setString(6, mapper.writeValueAsString(doc.getMetadata().toString()));
                 pstmt.executeUpdate();
             }
+        }
+    }
+
+    public void markIndexed(int documentId) throws SQLException {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath);
+             PreparedStatement pstmt = conn.prepareStatement(
+                     "UPDATE table_document SET indexed = 1 WHERE document_id = ?")) {
+            pstmt.setInt(1, documentId);
+            pstmt.executeUpdate();
         }
     }
 

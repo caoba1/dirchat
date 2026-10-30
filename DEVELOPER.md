@@ -58,3 +58,12 @@ file and subdirectory counts before deleting or creating any index data.
 discovered files or loads their indexed status from the existing store.
 Documents are chunked and embedded in `StreamSplitter.splitDocument`, and the
 completed file list is displayed in the main table.
+
+# Programm Flow
+IndexingTask calls handler.splitDocument().
+For PDFs, splitDocument() calls chunkTextBySize(text, pageNumber) for each page. That cuts the text into fixed-size pieces with overlap.
+For other file types, Tika parses the file and calls characters(...). That fills a buffer and calls processChunk(...) whenever the buffer reaches CHUNK_CHAR_LIMIT.
+Both routes end up in dirchatStoreChunk(chunk, text), which does the real work:
+Embedding: embeddingService.embedText(chunkText), which calls Ollama (the //magic line).
+Saving: vectorStore.saveChunkEmbeddingToSqlite(chunk, embedding), which writes to table_chunk.
+Progress and cancel: it updates the progress dialog and checks whether you cancelled.

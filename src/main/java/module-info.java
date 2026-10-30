@@ -10,6 +10,7 @@ module org.dirchat {
     requires javafx.fxml;
     requires org.apache.tika.core;
     requires org.apache.tika.parser.pdf;
+    requires org.apache.pdfbox;
 
     exports org.dirchat.util;
 

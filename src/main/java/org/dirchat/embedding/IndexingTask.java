@@ -11,6 +11,7 @@ import org.dirchat.document.DocumentLoader;
 import org.dirchat.document.StreamSplitter;
 import org.dirchat.util.ConfigManager;
 import org.dirchat.util.Dirchat;
+import org.dirchat.util.ErrorMessages;
 import org.dirchat.util.Messages;
 import javafx.application.Platform;
 import java.nio.file.Path;
@@ -106,6 +107,7 @@ public class IndexingTask extends Task<Void> {
                             doc,
                             progressDialog);
                     handler.splitDocument();
+                    vectorStore.markIndexed(doc.getDocumentId());
                     doc.setIntexed(true);
                     docs.add(doc);
                     if (progressDialog != null) {
@@ -117,15 +119,8 @@ public class IndexingTask extends Task<Void> {
             loadedDocuments = docs;
             LogMessages.debug("[Indexing] Task completed");
         } catch (Exception e) {
-            String messageKey = "indexing.error.general";
-            if (e instanceof java.net.ConnectException
-                    || e.getCause() instanceof java.net.ConnectException) {
-                messageKey = "indexing.error.connection";
-            } else if (e instanceof org.apache.tika.exception.TikaException) {
-                messageKey = "indexing.error.document";
-            }
             if (progressDialog != null) {
-                progressDialog.setMessage(Messages.get(messageKey));
+                progressDialog.setMessage(ErrorMessages.describe(e, "indexing.status.failed"));
             }
             LogMessages.logWarning("Indexing task failed.", e);
             throw e;

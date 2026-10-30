@@ -4,11 +4,10 @@
         {
             "type": "java",
             "name": "Debug dirchat",
-            "request": "launch",
-            "mainClass": "org.dirchat.MainApp",
-            "projectName": "dirchat",
-            "vmArgs": "--add-reads=org.dirchat=ALL-UNNAMED -Ddirchat.log.level=DEBUG",
-            "console": "integratedTerminal"
+            "request": "attach",
+            "hostName": "localhost",
+            "port": 5005,
+            "preLaunchTask": "Run dirchat (debug)"
         }
     ]
 }

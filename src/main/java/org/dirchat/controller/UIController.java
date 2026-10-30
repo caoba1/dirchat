@@ -31,6 +31,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import org.dirchat.document.DocumentLoader;
 import org.dirchat.embedding.*;
+import org.dirchat.util.ErrorMessages;
 import org.dirchat.util.LogMessages;
 import org.dirchat.util.ConfigManager;
 import org.dirchat.util.Messages;
@@ -291,7 +292,7 @@ public class UIController {
         scanTask.setOnFailed(event -> {
             mainBorderPane.setCursor(Cursor.DEFAULT);
             loadFolderButton.setDisable(false);
-            setMessageBar(Messages.get("indexing.status.failed"), "red");
+            setMessageBar(ErrorMessages.describe(scanTask.getException(), "indexing.status.failed"), "red");
             LogMessages.logWarning("Could not scan the selected directory.", scanTask.getException());
             updateIndexLoadedIndicator(IndexStatus.FAILED);
         });
@@ -344,7 +345,7 @@ public class UIController {
             mainBorderPane.setCursor(Cursor.DEFAULT);
             loadFolderButton.setDisable(false);
             LogMessages.logWarning("Could not prepare the directory index.", e);
-            setMessageBar(Messages.get("indexing.status.failed"), "red");
+            setMessageBar(ErrorMessages.describe(e, "indexing.status.failed"), "red");
             updateIndexLoadedIndicator(IndexStatus.FAILED);
         }
     }
@@ -383,7 +384,8 @@ public class UIController {
             progressDialog.close();
             mainBorderPane.setCursor(Cursor.DEFAULT);
             loadFolderButton.setDisable(false);
-            setMessageBar(Messages.get("indexing.status.failed"), "red");
+            Throwable failure = loadTask.getException();
+            setMessageBar(ErrorMessages.describe(failure, "indexing.status.failed"), "red");
             updateIndexLoadedIndicator(IndexStatus.FAILED);
         }));
         LogMessages.debug("[Indexing] Submitting IndexingTask to executor");
@@ -428,7 +430,7 @@ public class UIController {
         });
         askTask.setOnFailed(e -> {
             mainBorderPane.setCursor(Cursor.DEFAULT);
-            setMessageBar(Messages.get("chat.answer.failed"), "red");
+            setMessageBar(ErrorMessages.describe(askTask.getException(), "chat.answer.failed"), "red");
             if (askTask.getException() != null) {
                 LogMessages.logWarning("Chat answer task failed.", askTask.getException());
             }
@@ -449,7 +451,7 @@ public class UIController {
             Desktop.getDesktop().open(doc.absolutePath.toFile());
         } catch (Exception e) {
             LogMessages.logWarning("Could not open a selected document.", e);
-            setMessageBar(Messages.get("directory.file.open.error"), "red");
+            setMessageBar(ErrorMessages.describe(e, "directory.file.open.error"), "red");
         }
     }
 
@@ -533,7 +535,7 @@ public class UIController {
                 setMessageBar(Messages.format("export.status.saved", file.getAbsolutePath()));
             } catch (IOException e) {
                 LogMessages.logWarning("Could not export chat history.", e);
-                setMessageBar(Messages.format("export.error.failed", e.getMessage()), "red");
+                setMessageBar(ErrorMessages.describe(e, "export.error.failed"), "red");
             }
         }
     }

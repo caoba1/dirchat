@@ -5,11 +5,25 @@
 			"label": "Run dirchat JavaFX app",
 			"type": "shell",
 			"command": "mvn",
-			"args": [
-				"javafx:run"
-			],
+			"args": ["javafx:run"],
 			"isBackground": true,
 			"problemMatcher": []
+		},
+		{
+			"label": "Run dirchat (debug)",
+			"type": "shell",
+			"command": "mvn",
+			"args": ["compile", "javafx:run@debug"],
+			"isBackground": true,
+			"problemMatcher": {
+				"owner": "custom",
+				"pattern": { "regexp": "^$" },
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^\\[INFO\\] Scanning for projects",
+					"endsPattern": "Listening for transport dt_socket"
+				}
+			}
 		}
 	]
 }
