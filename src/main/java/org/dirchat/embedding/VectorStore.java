@@ -316,24 +316,28 @@ public class VectorStore {
     }
 
     public boolean indexExists() {
-        if (Files.exists(sqliteDbPath)) {
-            String cntSql = "SELECT COUNT(*) FROM table_document";
-            try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + sqliteDbPath.toString())) {
-                try (PreparedStatement pstmt = conn.prepareStatement(cntSql);
-                     ResultSet rs = pstmt.executeQuery()) {
-                    if (rs.next()) {
-                        int count = rs.getInt(1);
-                        return count > 0;
-                    }
-                }
-            } catch (SQLException e) {
+        return indexExistsDatabase(sqliteDbPath);
+    }
 
-                // Table does not exist or other SQL error
-                LogMessages.logWarning("DB file exists but no connection possible. Reason: " + e.getMessage());
-                return false;
-            }
+    public static boolean indexExists(Path folderPath) {
+        Path databasePath = folderPath.resolve(ConfigManager.DIRECTORY).resolve("vectorstore.db");
+        return indexExistsDatabase(databasePath);
+    }
+
+    private static boolean indexExistsDatabase(Path databasePath) {
+        if (!Files.isRegularFile(databasePath)) {
+            return false;
         }
-        return false;
+        String countSql = "SELECT COUNT(*) FROM table_document";
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + databasePath.toAbsolutePath())) {
+            try (PreparedStatement statement = conn.prepareStatement(countSql);
+                 ResultSet results = statement.executeQuery()) {
+                return results.next() && results.getInt(1) > 0;
+            }
+        } catch (SQLException e) {
+            LogMessages.logWarning("Could not check the index database: " + databasePath, e);
+            return false;
+        }
     }
 
     // Returns  the ids

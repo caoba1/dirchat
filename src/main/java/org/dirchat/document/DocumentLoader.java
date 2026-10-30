@@ -31,11 +31,43 @@ import java.io.InputStream;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Stream;
 
 // This file uses Apache Tika to load and parse documents from a specified folder.
 public class DocumentLoader {
+    public record DirectoryContents(List<Path> supportedFiles, int subdirectoryCount) {
+        public DirectoryContents {
+            supportedFiles = List.copyOf(supportedFiles);
+        }
+    }
+
     private List<Path>  listFiles;
     private final Path folderPath;
+
+    public static DirectoryContents scanDirectory(Path folderPath) throws IOException {
+        Path root = folderPath.toAbsolutePath().normalize();
+        if (!Files.isDirectory(root)) {
+            throw new IllegalArgumentException("Folder path does not exist or is not a directory: " + root);
+        }
+
+        List<Path> entries;
+        try (Stream<Path> paths = Files.walk(root)) {
+            entries = paths
+                    .filter(path -> !Dirchat.isInIndexDirectory(path))
+                    .toList();
+        }
+
+        List<Path> supportedFiles = entries.stream()
+                .filter(Files::isRegularFile)
+                .filter(Dirchat::isSupported)
+                .toList();
+        int subdirectoryCount = (int) entries.stream()
+                .filter(path -> !path.equals(root))
+                .filter(Files::isDirectory)
+                .count();
+        return new DirectoryContents(supportedFiles, subdirectoryCount);
+    }
+
     public DocumentLoader(String folderPathStr){
         super();
         folderPath = Paths.get(folderPathStr);

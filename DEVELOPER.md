@@ -45,3 +45,16 @@ Structure:
 + Augmentation
 + + Chat LLM
 + Export
+
+# Directory loading and indexing flow
+`UIController.handleLoadFolder` starts an asynchronous recursive scan using
+`DocumentLoader.scanDirectory`. The scan excludes the `.dirchat` index directory
+and returns supported files plus the number of subdirectories.
+
+`UIController.prepareDirectoryLoad` checks for an existing SQLite index. If a
+new index or configured regeneration is needed, it asks the user to confirm the
+file and subdirectory counts before deleting or creating any index data.
+`UIController.startIndexing` then starts `IndexingTask`, which indexes the
+discovered files or loads their indexed status from the existing store.
+Documents are chunked and embedded in `StreamSplitter.splitDocument`, and the
+completed file list is displayed in the main table.

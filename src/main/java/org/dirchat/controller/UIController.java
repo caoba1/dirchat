@@ -36,6 +36,7 @@ import org.dirchat.util.ConfigManager;
 import org.dirchat.util.Messages;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -44,13 +45,17 @@ import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Future;
 import java.util.LinkedHashMap;
 import java.util.concurrent.Executors;
 import java.util.ArrayList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Comparator;
+import java.util.stream.Stream;
 
 
 public class UIController {
@@ -125,6 +130,8 @@ public class UIController {
         });
 
         // Table view configuration
+        fileNameColumn.setCellValueFactory(cellData ->
+                new javafx.beans.property.SimpleStringProperty(cellData.getValue().getFileName()));
         scoreColumn.setCellValueFactory(cellData -> {
             Double score = cellData.getValue().getScore();
             if (score == null)
@@ -265,50 +272,121 @@ public class UIController {
         }
         selectedFolder = folder.getAbsolutePath(); //TODO: Change to path.
         folderLabel.setText(Messages.format("directory.selection.selected", selectedFolder));
-        // Delete index folder if config option is enabled
-        if (ConfigManager.getDeleteIndexOnLoad()) {
-            Path indexPath = Paths.get(selectedFolder, ConfigManager.DIRECTORY);
-            File indexFolder = indexPath.toFile();
-            if (indexFolder.exists()) {
-                deleteDirectoryRecursively(indexFolder);
+        loadedDocuments.clear();
+        indexStatusTable.getItems().clear();
+        askButton.setDisable(true);
+        loadFolderButton.setDisable(true);
+        updateIndexLoadedIndicator(IndexStatus.NOT_SELECTED);
+        mainBorderPane.setCursor(Cursor.WAIT);
+
+        Path folderPath = Paths.get(selectedFolder);
+        javafx.concurrent.Task<DocumentLoader.DirectoryContents> scanTask =
+                new javafx.concurrent.Task<>() {
+                    @Override
+                    protected DocumentLoader.DirectoryContents call() throws Exception {
+                        return DocumentLoader.scanDirectory(folderPath);
+                    }
+                };
+        scanTask.setOnSucceeded(event -> prepareDirectoryLoad(folderPath, scanTask.getValue()));
+        scanTask.setOnFailed(event -> {
+            mainBorderPane.setCursor(Cursor.DEFAULT);
+            loadFolderButton.setDisable(false);
+            setMessageBar(Messages.get("indexing.status.failed"), "red");
+            LogMessages.logWarning("Could not scan the selected directory.", scanTask.getException());
+            updateIndexLoadedIndicator(IndexStatus.FAILED);
+        });
+        futures.add(executorService.submit(scanTask));
+    }
+
+    private void prepareDirectoryLoad(Path folderPath, DocumentLoader.DirectoryContents contents) {
+        boolean indexExists = VectorStore.indexExists(folderPath);
+        boolean rebuildIndex = ConfigManager.getDeleteIndexOnLoad() || !indexExists;
+
+        if (rebuildIndex) {
+            if (contents.supportedFiles().isEmpty()) {
+                mainBorderPane.setCursor(Cursor.DEFAULT);
+                loadFolderButton.setDisable(false);
+                setMessageBar(Messages.get("indexing.status.no-files"));
+                return;
+            }
+
+            Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION);
+            confirmation.setTitle(Messages.get("indexing.confirmation.title"));
+            confirmation.setHeaderText(null);
+            confirmation.setContentText(Messages.format(
+                    "indexing.confirmation.message",
+                    contents.supportedFiles().size(),
+                    contents.subdirectoryCount()));
+            ButtonType proceedButton = new ButtonType(
+                    Messages.get("indexing.confirmation.proceed"),
+                    ButtonData.YES);
+            ButtonType cancelButton = new ButtonType(
+                    Messages.get("indexing.confirmation.cancel"),
+                    ButtonData.NO);
+            confirmation.getButtonTypes().setAll(proceedButton, cancelButton);
+
+            Optional<ButtonType> response = confirmation.showAndWait();
+            if (response.isEmpty() || response.get() != proceedButton) {
+                mainBorderPane.setCursor(Cursor.DEFAULT);
+                loadFolderButton.setDisable(false);
+                setMessageBar(Messages.get("indexing.status.cancelled"));
+                return;
             }
         }
-        vectorStore = new VectorStore(selectedFolder);
+
+        try {
+            if (rebuildIndex) {
+                deleteDirectoryRecursively(folderPath.resolve(ConfigManager.DIRECTORY));
+            }
+            vectorStore = new VectorStore(folderPath.toString());
+            startIndexing(contents.supportedFiles());
+        } catch (IOException | RuntimeException e) {
+            mainBorderPane.setCursor(Cursor.DEFAULT);
+            loadFolderButton.setDisable(false);
+            LogMessages.logWarning("Could not prepare the directory index.", e);
+            setMessageBar(Messages.get("indexing.status.failed"), "red");
+            updateIndexLoadedIndicator(IndexStatus.FAILED);
+        }
+    }
+
+    private void startIndexing(List<Path> files) {
         ProgressDialog progressDialog = new ProgressDialog(
                 (Stage) mainBorderPane.getScene().getWindow(),
                 Messages.get("indexing.progress.started"));
         progressDialog.show();
-        mainBorderPane.setCursor(Cursor.WAIT);
-        javafx.concurrent.Task<Void> loadTask = new IndexingTask( vectorStore, progressDialog );
+        javafx.concurrent.Task<Void> loadTask = new IndexingTask(vectorStore, progressDialog, files);
         loadTask.setOnSucceeded(e -> {
 
-            // 251210: Clear and update the existing list instead of reassigning.
             loadedDocuments.clear();
             loadedDocuments.addAll( ((IndexingTask)loadTask).getLoadedDocuments());
 
             Platform.runLater(() -> {
                 progressDialog.close();
                 mainBorderPane.setCursor(Cursor.DEFAULT);
+                loadFolderButton.setDisable(false);
                 folderLabel.setText(Messages.format("directory.selection.selected", selectedFolder));
                 setMessageBar(Messages.get("indexing.status.loaded"));
                 indexStatusTable.getItems().clear();
                 indexStatusTable.getItems().addAll(loadedDocuments);
-                askButton.setDisable(false);
+                askButton.setDisable(loadedDocuments.isEmpty());
                 updateIndexLoadedIndicator(IndexStatus.LOADED);
             });
         });
         loadTask.setOnCancelled(e -> Platform.runLater(() -> {
             progressDialog.close();
             mainBorderPane.setCursor(Cursor.DEFAULT);
+            loadFolderButton.setDisable(false);
             setMessageBar(Messages.get("indexing.status.cancelled"));
             updateIndexLoadedIndicator(IndexStatus.NOT_SELECTED);
         }));
         loadTask.setOnFailed(e -> Platform.runLater(() -> {
             progressDialog.close();
             mainBorderPane.setCursor(Cursor.DEFAULT);
+            loadFolderButton.setDisable(false);
             setMessageBar(Messages.get("indexing.status.failed"), "red");
             updateIndexLoadedIndicator(IndexStatus.FAILED);
         }));
+        LogMessages.debug("[Indexing] Submitting IndexingTask to executor");
         futures.add(executorService.submit(loadTask));
     }
 
@@ -484,16 +562,14 @@ public class UIController {
         }
     }
 
-    // Utility method to delete a directory recursively
-    private void deleteDirectoryRecursively(File dir) {
-        if (dir.isDirectory()) {
-            File[] children = dir.listFiles();
-            if (children != null) {
-                for (File child : children) {
-                    deleteDirectoryRecursively(child);
-                }
+    private void deleteDirectoryRecursively(Path directory) throws IOException {
+        if (!Files.exists(directory)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(directory)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
             }
         }
-        dir.delete();
     }
 }

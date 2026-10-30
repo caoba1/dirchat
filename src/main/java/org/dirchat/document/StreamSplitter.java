@@ -139,7 +139,7 @@ public class StreamSplitter implements ContentHandler {
     }
 
     private boolean dirchatStoreChunk(Chunk chunk, String chunkText) {
-        if ( progressDialog.isCancelled() ) {
+        if (progressDialog != null && progressDialog.isCancelled()) {
             throw new RuntimeException("Cancelado por el usuario");
         }
         List<Double> embedding = embeddingService.embedText(chunkText); //magic
@@ -150,8 +150,10 @@ public class StreamSplitter implements ContentHandler {
         }
         // Call to
         double progress = Math.min(chunkIndex.doubleValue() / (totalChunks), 1.0);
-        Platform.runLater(() -> progressDialog.setFileProgress(progress));
-        if (progressDialog.isCancelled() ) {
+        if (progressDialog != null) {
+            Platform.runLater(() -> progressDialog.setFileProgress(progress));
+        }
+        if (progressDialog != null && progressDialog.isCancelled()) {
             LogMessages.logWarning("[Indexing] Cancelled by user (after embedding chunk)");
         }
         return true;

@@ -13,119 +13,108 @@ import org.dirchat.util.ConfigManager;
 import org.dirchat.util.Dirchat;
 import org.dirchat.util.Messages;
 import javafx.application.Platform;
-import java.io.File;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.io.IOException;
 import org.dirchat.controller.ProgressDialog;
 import org.dirchat.util.LogMessages;
-import java.util.stream.Collectors;
 
 public class IndexingTask extends Task<Void> {
-    private final File folder; //DB fil
-    //TODO: see implementation in DocumentLoader -> list files instead of directory. a list of paths!!! use walk!
+    private final List<Path> files;
     private final VectorStore vectorStore;
     private final ProgressDialog progressDialog;
     private List<DocumentLoader.LoadedDocument> loadedDocuments;
 
-    public IndexingTask( VectorStore vectorStore, ProgressDialog progressDialog) {
-        this.folder = vectorStore.getFolder().toFile();
+    public IndexingTask(VectorStore vectorStore, ProgressDialog progressDialog) {
+        this(vectorStore, progressDialog, scanFiles(vectorStore));
+    }
+
+    public IndexingTask(
+            VectorStore vectorStore,
+            ProgressDialog progressDialog,
+            List<Path> files) {
         this.vectorStore = vectorStore;
         this.progressDialog = progressDialog;
+        this.files = List.copyOf(files);
+        LogMessages.debug("[Indexing] Task init: " + this.files.size() + " files");
+    }
+
+    private static List<Path> scanFiles(VectorStore vectorStore) {
+        try {
+            return DocumentLoader.scanDirectory(vectorStore.getFolder().getParent()).supportedFiles();
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not scan the directory for indexing.", e);
+        }
     }
 
     @Override
     protected Void call() throws Exception {
-        // Move your indexing logic here (from handleLoadFolder)
-        // Update progressDialog and loadedDocuments as needed
+        LogMessages.debug("[Indexing] startingIndexing task");
         try {
-            List<DocumentLoader.LoadedDocument> docs = new java.util.ArrayList<>();
+            List<DocumentLoader.LoadedDocument> docs = new ArrayList<>();
             LogMessages.debug("[Indexing] Task started");
             if (vectorStore.indexExists()) {
                 LogMessages.debug("[Indexing] Index exists, loading from DB");
 
-                // loading document ids
                 List<DocumentLoader.LoadedDocument> loadedDocs = vectorStore.loadIndexing();
                 TreeSet<Integer> documentIds = loadedDocs
                         .stream()
-                        .map( doc -> doc.getDocumentId() )
-                        .collect( Collectors.toCollection( TreeSet::new ) );
+                        .map(DocumentLoader.LoadedDocument::getDocumentId)
+                        .collect(java.util.stream.Collectors.toCollection(TreeSet::new));
 
-                Path folderPath = folder.getParentFile().toPath();
-                try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(folderPath)) {
-                    for (Path path : dirStream) {
-                        if (Dirchat.safeIsRegularFile(path) &&
-                            Dirchat.isSupported(path))
-                        {
-                            DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(
-                                    path.toAbsolutePath().toString(),
-                                    false);
-                            doc.setIntexed(documentIds.contains(doc.getDocumentId())); // non-indexed documents may be updated later
-                            docs.add(doc);
-                        }
-                    }
+                for (Path path : files) {
+                    DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(
+                            path.toAbsolutePath().toString(),
+                            false);
+                    doc.setIntexed(documentIds.contains(doc.getDocumentId()));
+                    docs.add(doc);
                 }
 
                 updateMessage(Messages.get("indexing.status.loaded"));
             } else {
-                LogMessages.debug("[Indexing] Index does not exist or is not complete. Processing files");
-
-                File folderFileInstance = folder.getParentFile();
-                File[] files = folderFileInstance.listFiles();
-                final long total = Arrays.stream(files)
-                        .filter( (File f) -> f.isFile() )
-                        .count();
-                AtomicInteger count = new AtomicInteger(0);
+                LogMessages.debug("[Indexing] Index does not exist. Processing files");
+                int total = files.size();
+                int count = 0;
                 EmbeddingService embeddingService = new EmbeddingService(
                         ConfigManager.getOllamaBaseUrl(),
                         ConfigManager.getIndexingMethod()
                 );
-                for (File file : files) {
-                    if (progressDialog.isCancelled() || isCancelled()) {
+                for (Path path : files) {
+                    if ((progressDialog != null && progressDialog.isCancelled()) || isCancelled()) {
                         LogMessages.debug("[Indexing] Cancelled by user (file loop)");
-                        updateMessage(Messages.get("indexing.status.cancelled"));
+                        cancel(true);
                         break;
                     }
 
-                    if (file.isFile() && Dirchat.isSupported(file.toPath())) {
-                        count.incrementAndGet();
-                        LogMessages.debug("[Indexing] Processing file: " + file.getName());
-                        updateMessage(Messages.format("indexing.progress.loading-file", file.getName()));
-                        Platform.runLater(() -> {
-                            progressDialog.setFileName(file.getName());
-                            progressDialog.setProgress((double) count.get() / total);
-                        });
+                    count++;
+                    String fileName = path.getFileName().toString();
+                    LogMessages.debug("[Indexing] Processing file: " + path);
+                    updateMessage(Messages.format("indexing.progress.loading-file", fileName));
+                    if (progressDialog != null) {
+                        progressDialog.setFileName(path.toString());
+                        progressDialog.setProgress((double) count / total);
+                    }
 
-                        // The documentation says one should add metadata, the stream, and a handler.
-                        // I am using then a custom handler to fetch the content in document.StreamSplitter
-                        org.apache.tika.metadata.Metadata metadata = new org.apache.tika.metadata.Metadata();
-                        org.apache.tika.parser.AutoDetectParser parser = new org.apache.tika.parser.AutoDetectParser();
-                        // TODO: Add OCR, optical character recognition, for images and scanned PDFs
-                        org.apache.tika.parser.ParseContext context = new org.apache.tika.parser.ParseContext();
+                    DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(
+                            path.toAbsolutePath().toString(),
+                            true);
+                    vectorStore.upsertLoadedDocument(doc);
 
-                        DocumentLoader.LoadedDocument doc = new DocumentLoader.LoadedDocument(
-                                file.getAbsolutePath(),
-                                true);
-                        vectorStore.upsertLoadedDocument(doc); // Save in table_document
-
-                        // Our custom ContentHandler that splits the stream into chunks and embeds them
-                        StreamSplitter handler = new StreamSplitter( embeddingService,
-                                vectorStore,
-                                doc,
-                                progressDialog);
-
-                        // Use the unified entry point for chunking/indexing
-                        handler.splitDocument();
-                        doc.setIntexed(true);
-                        docs.add(doc);
-                        Platform.runLater(() -> progressDialog.setFileProgress(1));
+                    StreamSplitter handler = new StreamSplitter(
+                            embeddingService,
+                            vectorStore,
+                            doc,
+                            progressDialog);
+                    handler.splitDocument();
+                    doc.setIntexed(true);
+                    docs.add(doc);
+                    if (progressDialog != null) {
+                        progressDialog.setFileProgress(1);
                     }
                 }
                 updateMessage(Messages.get("indexing.status.loaded"));
             }
-            loadedDocuments = docs; // Todo: load at step
+            loadedDocuments = docs;
             LogMessages.debug("[Indexing] Task completed");
         } catch (Exception e) {
             String messageKey = "indexing.error.general";
@@ -135,7 +124,9 @@ public class IndexingTask extends Task<Void> {
             } else if (e instanceof org.apache.tika.exception.TikaException) {
                 messageKey = "indexing.error.document";
             }
-            progressDialog.setMessage(Messages.get(messageKey));
+            if (progressDialog != null) {
+                progressDialog.setMessage(Messages.get(messageKey));
+            }
             LogMessages.logWarning("Indexing task failed.", e);
             throw e;
         }
