@@ -8,6 +8,8 @@ module org.dirchat {
     requires com.fasterxml.jackson.databind;
     requires javafx.controls;
     requires javafx.fxml;
+    requires org.apache.tika.core;
+    requires org.apache.tika.parser.pdf;
 
     exports org.dirchat.util;
 

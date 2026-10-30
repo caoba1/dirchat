@@ -156,11 +156,12 @@
                         <configuration>
                             <includeScope>compile</includeScope>
 
-                            <!-- ONLY safe JPMS modules allowed here -->
-                            <includeGroupIds>
-                                org.openjfx,
-                                com.fasterxml.jackson.core
-                            </includeGroupIds>
+                            <!-- Tika: only the modules the code uses (cad/code modules share a module name) -->
+                            <includeArtifactIds>
+                                javafx-controls,javafx-fxml,javafx-base,javafx-graphics,
+                                jackson-databind,jackson-core,jackson-annotations,
+                                tika-core,tika-parser-pdf-module
+                            </includeArtifactIds>
 
                             <includeTypes>jar</includeTypes>
 
