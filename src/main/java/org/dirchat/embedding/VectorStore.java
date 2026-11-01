@@ -157,6 +157,7 @@ public class VectorStore {
                 + "document_id INTEGER,"
                 + "chunk_index INTEGER,"
                 + "cursor_pointer INTEGER,"
+                + "page_number INTEGER,"
                 + "source_file TEXT,"
                 + "document_type TEXT,"
                 + "time_stamp TEXT,"
@@ -167,6 +168,22 @@ public class VectorStore {
                 + ")";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.executeUpdate();
+        }
+        addMissingPageNumberColumn(conn);
+    }
+
+    // Upgrades indexes created before page_number existed.
+    private void addMissingPageNumberColumn(Connection conn) throws SQLException {
+        try (java.sql.Statement st = conn.createStatement();
+                java.sql.ResultSet rs = st.executeQuery("PRAGMA table_info(table_chunk)")) {
+            while (rs.next()) {
+                if ("page_number".equalsIgnoreCase(rs.getString("name"))) {
+                    return;
+                }
+            }
+        }
+        try (java.sql.Statement st = conn.createStatement()) {
+            st.executeUpdate("ALTER TABLE table_chunk ADD COLUMN page_number INTEGER");
         }
     }
 
