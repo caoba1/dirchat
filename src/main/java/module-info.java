@@ -1,3 +1,7 @@
+// dirchat - A chat application
+// Copyright (C) 2026 Carlos de Obaldia Pastor
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 module org.dirchat {
 	// JDK
     requires java.xml;

@@ -10,11 +10,11 @@ The application is written in Java and implements an interface for the creation 
 
 When a user asks a question, the results of the top K documents are shown in the results window. The application shows the retrieved documents, along with its relative score and the result of a query to a conversational large language model. 
 
-This application implement a Retrieval-Augmented Generation (RAG) pipeline using embeddings and a local LLM via [Ollama](https://ollama.com/).  
+This application implements a Retrieval-Augmented Generation (RAG) pipeline using embeddings and a local LLM via [Ollama](https://ollama.com/).  
 
 Work on the implementation of a local solution for a Model Context Protocol server (MCP) is also underway. Please fell free to message me or make a pull request if you want to contibute adding image-to-text or pdf-to-markup or other featurs which can contribute to the indexing and search processes. 
 
-Indexing and retrieval methods are still in evaluatory phase.  <span style="color: green;">Goal is to have a working local solution, most certainly on a local GPU, -plus a distributable- by the end of 2Q2026.</span> 
+Indexing and retrieval methods are still in evaluatory phase.  <span style="color: green;">Goal is to have a working local solution, most certainly on a local GPU, -plus a distributable- by the end of 2026.</span> 
 
 The application supports `.pdf` files and interfaces exist for expanding that to `.docx`, and `.txt`. More file types should be added in the future, as well as support for saving images in the same semantic space.
 
@@ -34,6 +34,12 @@ The following models have been tested:
   - `tynillama`
   - `mistral`
 
+## Prerequisites
+This will be removed in future releases. In the meantime, do:
+`ollama pull all-minillm:33`
+`ollama pull tinyllama`
+
+## Benchmarks
 For testbenching i have used a large set of PDF documents downloaded from [data.gov](https://data.labs.loc.gov/dot-gov/) and [loc.gov](https://www.loc.gov/item/2020445568/).  Please message me if you have information on current benchmarks for document retrieval.
 
 ## Indexing
@@ -68,6 +74,7 @@ This package-based organization keeps the codebase modular and maintainable. All
   -- Jackson Databind
 - Ollama running locally or on a network server, usually at port 11434.
    -- tinyllama
+   -- all-minillm:33
 
 
 ## Getting Started
